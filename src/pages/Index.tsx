@@ -1,10 +1,9 @@
-
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Login } from "lucide-react";
+import { LogIn } from "lucide-react";
 
 // This page is only used as a landing page that redirects to either the login or dashboard
 const Index = () => {
@@ -30,7 +29,7 @@ const Index = () => {
           
           {!isLoading && (
             <Button onClick={() => navigate("/login")} className="w-full">
-              <Login className="mr-2 h-4 w-4" /> Go to Login
+              <LogIn className="mr-2 h-4 w-4" /> Go to Login
             </Button>
           )}
 

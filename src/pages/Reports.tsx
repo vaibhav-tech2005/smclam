@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,7 +55,8 @@ const Reports = () => {
   // Filter transactions based on criteria
   const filteredTransactions = transactions.filter(transaction => {
     // Filter by type
-    if (transaction.type !== reportType) return false;
+    if ((reportType === "sales" && transaction.type !== "sale") || 
+        (reportType === "purchases" && transaction.type !== "purchase")) return false;
     
     // Filter by date range
     const transactionDate = new Date(transaction.date);
@@ -152,7 +152,7 @@ const Reports = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${reportType}_report_${startDate}_to_${endDate}.csv`;
+    link.download = `${reportType === "sales" ? "Sales" : "Purchase"} Report_${startDate}_to_${endDate}.csv`;
     link.click();
   };
   
