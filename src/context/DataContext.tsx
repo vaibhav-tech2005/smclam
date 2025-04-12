@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -39,36 +38,7 @@ interface DataContextType {
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
 // Sample data for development
-const initialLaminates: Laminate[] = [
-  {
-    id: "lam1",
-    brandName: "ForestOne",
-    laminateNumber: "F6363",
-    laminateFinish: "Matte",
-    currentStock: 15,
-  },
-  {
-    id: "lam2",
-    brandName: "Polytec",
-    laminateNumber: "P2365",
-    laminateFinish: "Gloss",
-    currentStock: 8,
-  },
-  {
-    id: "lam3",
-    brandName: "Laminex",
-    laminateNumber: "L8975",
-    laminateFinish: "Textured",
-    currentStock: 2,
-  },
-  {
-    id: "lam4",
-    brandName: "Wilsonart",
-    laminateNumber: "W4521",
-    laminateFinish: "Matte",
-    currentStock: 0,
-  },
-];
+const initialLaminates: Laminate[] = [];
 
 const initialTransactions: Transaction[] = [
   {
