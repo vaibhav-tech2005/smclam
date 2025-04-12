@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -5,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
 
-// This page is only used as a landing page that redirects to either the login or dashboard
+// This component now serves as a router that redirects users based on their authentication status
 const Index = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -13,7 +14,8 @@ const Index = () => {
   useEffect(() => {
     if (!isLoading) {
       if (isAuthenticated) {
-        navigate("/");
+        // Redirect authenticated users to dashboard
+        navigate("/dashboard");
       } else {
         navigate("/login");
       }
