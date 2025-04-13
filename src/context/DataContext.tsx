@@ -37,75 +37,9 @@ interface DataContextType {
 // Generate a random ID
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
-// Sample data for development
+// Initialize with empty arrays instead of sample data
 const initialLaminates: Laminate[] = [];
-
-const initialTransactions: Transaction[] = [
-  {
-    id: "trans1",
-    type: "purchase",
-    laminateId: "lam1",
-    date: "2025-04-01",
-    quantity: 20,
-    remarks: "Initial stock",
-  },
-  {
-    id: "trans2",
-    type: "sale",
-    laminateId: "lam1",
-    date: "2025-04-05",
-    quantity: 5,
-    customerName: "ABC Cabinets",
-    remarks: "First order",
-  },
-  {
-    id: "trans3",
-    type: "purchase",
-    laminateId: "lam2",
-    date: "2025-04-02",
-    quantity: 10,
-    remarks: "Restock",
-  },
-  {
-    id: "trans4",
-    type: "sale",
-    laminateId: "lam2",
-    date: "2025-04-08",
-    quantity: 2,
-    customerName: "XYZ Furniture",
-  },
-  {
-    id: "trans5",
-    type: "purchase",
-    laminateId: "lam3",
-    date: "2025-04-03",
-    quantity: 5,
-  },
-  {
-    id: "trans6",
-    type: "sale",
-    laminateId: "lam3",
-    date: "2025-04-10",
-    quantity: 3,
-    customerName: "Modern Interiors",
-    remarks: "Rush order",
-  },
-  {
-    id: "trans7",
-    type: "purchase",
-    laminateId: "lam4",
-    date: "2025-04-01",
-    quantity: 8,
-  },
-  {
-    id: "trans8",
-    type: "sale",
-    laminateId: "lam4",
-    date: "2025-04-12",
-    quantity: 8,
-    customerName: "Premium Designs",
-  },
-];
+const initialTransactions: Transaction[] = [];
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
