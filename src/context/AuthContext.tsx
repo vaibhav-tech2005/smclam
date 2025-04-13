@@ -1,75 +1,125 @@
 
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Session, User } from "@supabase/supabase-js";
 
 type Role = "admin" | "user";
 
-interface User {
+interface AuthUser {
   id: string;
   username: string;
   role: Role;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
 }
 
-// Mock users for demo purposes
-const mockUsers = [
-  { id: "1", username: "admin", password: "admin123", role: "admin" as Role },
-  { id: "2", username: "user", password: "user123", role: "user" as Role },
-];
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Set up auth state listener first
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        setSession(currentSession);
+        
+        if (currentSession?.user) {
+          const supaUser = currentSession.user;
+          setSupabaseUser(supaUser);
+          
+          // Convert Supabase user to our app's user format
+          // For now, we'll assign 'user' role by default
+          // In a real app, you'd fetch role info from a user_roles table
+          setUser({
+            id: supaUser.id,
+            username: supaUser.email || "user",
+            role: supaUser.email?.includes("admin") ? "admin" : "user",
+          });
+        } else {
+          setSupabaseUser(null);
+          setUser(null);
+        }
+      }
+    );
+
+    // Then check for existing session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (initialSession?.user) {
+          const supaUser = initialSession.user;
+          setSupabaseUser(supaUser);
+          
+          // Convert Supabase user to our app's user format
+          setUser({
+            id: supaUser.id,
+            username: supaUser.email || "user",
+            role: supaUser.email?.includes("admin") ? "admin" : "user",
+          });
+        }
+      } catch (error) {
+        console.error("Error checking authentication:", error);
+        toast.error("Failed to check authentication status");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
 
     try {
-      // Reduced timeout from 800ms to 200ms for faster login
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      const foundUser = mockUsers.find(
-        (user) => user.username === username && user.password === password
-      );
-
-      if (foundUser) {
-        const { password, ...userWithoutPassword } = foundUser;
-        setUser(userWithoutPassword);
-        localStorage.setItem("user", JSON.stringify(userWithoutPassword));
-        toast.success("Login successful!");
-      } else {
-        toast.error("Invalid username or password");
+      if (error) {
+        throw error;
       }
-    } catch (error) {
-      toast.error("Login failed");
+
+      toast.success("Login successful!");
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast.error(error.message || "Login failed");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("user");
-    toast.success("Logged out successfully");
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+      
+      setUser(null);
+      toast.success("Logged out successfully");
+    } catch (error: any) {
+      console.error("Logout error:", error);
+      toast.error(error.message || "Logout failed");
+    }
   };
 
   const value = {
