@@ -1,7 +1,5 @@
 
 import React, { useState } from "react";
-import { useData } from "@/context/DataContext";
-import LowStockAlert from "./LowStockAlert";
 import DesktopSidebar from "./navigation/DesktopSidebar";
 import MobileHeader from "./navigation/MobileHeader";
 import MobileMenu from "./navigation/MobileMenu";
@@ -11,11 +9,7 @@ interface AppLayoutProps {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { getLowStockLaminates } = useData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const lowStockLaminates = getLowStockLaminates();
-  const hasLowStock = lowStockLaminates.length > 0;
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -35,7 +29,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
         {/* Main content */}
         <main className="flex-1 p-4 md:p-6 overflow-auto">
-          {hasLowStock && <LowStockAlert laminates={lowStockLaminates} />}
           {children}
         </main>
       </div>

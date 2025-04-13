@@ -5,7 +5,6 @@ import {
   Package,
   ShoppingCart, 
   TrendingUp, 
-  AlertTriangle,
   ArrowUp,
   ArrowDown
 } from "lucide-react";
@@ -14,12 +13,10 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { Link } from "react-router-dom";
 
 const Dashboard = () => {
-  const { laminates, transactions, getLowStockLaminates, getTopSellingLaminates } = useData();
+  const { laminates, transactions, getTopSellingLaminates } = useData();
   
   // Calculate statistics
   const totalLaminates = laminates.length;
-  const lowStockCount = getLowStockLaminates().length;
-  const outOfStockCount = laminates.filter(lam => lam.currentStock === 0).length;
   
   const purchases = transactions.filter(t => t.type === "purchase");
   const sales = transactions.filter(t => t.type === "sale");
@@ -44,12 +41,11 @@ const Dashboard = () => {
   );
   
   const stockData = [
-    { name: "In Stock", value: totalLaminates - lowStockCount - outOfStockCount },
-    { name: "Low Stock", value: lowStockCount - outOfStockCount },
-    { name: "Out of Stock", value: outOfStockCount },
+    { name: "In Stock", value: totalLaminates },
+    { name: "Sold", value: unitsSoldThisMonth },
   ];
   
-  const COLORS = ["#0088FE", "#FFBB28", "#FF8042"];
+  const COLORS = ["#0088FE", "#FFBB28"];
   
   return (
     <div className="space-y-6">
@@ -72,21 +68,6 @@ const Dashboard = () => {
             <div className="text-2xl font-bold">{totalLaminates}</div>
             <p className="text-xs text-muted-foreground mt-1">
               <Link to="/inventory" className="hover:underline">View inventory</Link>
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Low Stock Items
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{lowStockCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Including {outOfStockCount} out of stock
             </p>
           </CardContent>
         </Card>
