@@ -44,8 +44,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
 
     try {
-      // Simulating api call with timeout
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Reduced timeout from 800ms to 200ms for faster login
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       const foundUser = mockUsers.find(
         (user) => user.username === username && user.password === password

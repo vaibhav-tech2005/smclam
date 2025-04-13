@@ -43,6 +43,7 @@ const Login = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                autoFocus // Added autofocus for better UX
               />
             </div>
 
@@ -63,7 +64,7 @@ const Login = () => {
             <Button
               className="w-full"
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !username || !password} // Added validation
             >
               {isLoading ? (
                 <div className="flex items-center">
