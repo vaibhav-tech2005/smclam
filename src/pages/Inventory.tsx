@@ -1,9 +1,8 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, AlertCircle } from "lucide-react";
 import { useData, Laminate } from "@/context/DataContext";
 import {
   Dialog,
@@ -30,14 +29,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const Inventory = () => {
-  const { laminates, addLaminate, updateLaminate, deleteLaminate } = useData();
+  const { laminates, addLaminate, updateLaminate, deleteLaminate, clearAllLaminates } = useData();
   const { isAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isClearDatabaseDialogOpen, setIsClearDatabaseDialogOpen] = useState(false);
   const [selectedLaminate, setSelectedLaminate] = useState<Laminate | null>(null);
   
   // Form state
@@ -83,6 +84,10 @@ const Inventory = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  const openClearDatabaseDialog = () => {
+    setIsClearDatabaseDialogOpen(true);
+  };
+
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -124,6 +129,11 @@ const Inventory = () => {
     setIsDeleteDialogOpen(false);
   };
 
+  const handleClearAllLaminates = () => {
+    clearAllLaminates();
+    setIsClearDatabaseDialogOpen(false);
+  };
+
   const getStockStatusClass = (stock: number) => {
     if (stock === 0) return "text-red-600 font-medium";
     if (stock <= 2) return "text-amber-600 font-medium";
@@ -140,9 +150,14 @@ const Inventory = () => {
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={openAddDialog}>
-            <Plus className="mr-1 h-4 w-4" /> Add Laminate
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={openAddDialog}>
+              <Plus className="mr-1 h-4 w-4" /> Add Laminate
+            </Button>
+            <Button onClick={openClearDatabaseDialog} variant="destructive">
+              <Trash2 className="mr-1 h-4 w-4" /> Delete All Laminates
+            </Button>
+          </div>
         )}
       </div>
 
@@ -402,6 +417,42 @@ const Inventory = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Clear All Laminates Dialog */}
+      <AlertDialog open={isClearDatabaseDialogOpen} onOpenChange={setIsClearDatabaseDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" /> Delete Entire Laminate Database
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete ALL laminates in your inventory. This action cannot be undone.
+              Only laminates with no associated transactions will be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="rounded-md bg-destructive/10 p-4 text-destructive font-medium">
+              Warning: You are about to delete your entire laminate database. This is a permanent action.
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsClearDatabaseDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleClearAllLaminates}
+            >
+              Delete All Laminates
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -26,6 +27,7 @@ interface DataContextType {
   addLaminate: (laminate: Omit<Laminate, "id" | "currentStock">) => void;
   updateLaminate: (id: string, updates: Partial<Omit<Laminate, "id" | "currentStock">>) => void;
   deleteLaminate: (id: string) => void;
+  clearAllLaminates: () => void;
   addTransaction: (transaction: Omit<Transaction, "id">) => void;
   updateTransaction: (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => void;
   deleteTransaction: (id: string) => void;
@@ -125,6 +127,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.success("Laminate deleted");
   };
 
+  // New function to clear all laminates without transactions
+  const clearAllLaminates = () => {
+    // Get IDs of laminates with transactions
+    const laminatesWithTransactions = new Set(
+      transactions.map(t => t.laminateId)
+    );
+    
+    // Filter out laminates that have transactions
+    const newLaminates = laminates.filter(
+      laminate => laminatesWithTransactions.has(laminate.id)
+    );
+    
+    const deletedCount = laminates.length - newLaminates.length;
+    
+    if (deletedCount === 0) {
+      toast.error("No laminates could be deleted - all have associated transactions");
+      return;
+    }
+    
+    setLaminates(newLaminates);
+    toast.success(`Deleted ${deletedCount} laminates without transactions`);
+  };
+
   const addTransaction = (transaction: Omit<Transaction, "id">) => {
     const newTransaction = { ...transaction, id: generateId() };
     setTransactions([...transactions, newTransaction]);
@@ -181,6 +206,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addLaminate,
     updateLaminate,
     deleteLaminate,
+    clearAllLaminates,
     addTransaction,
     updateTransaction,
     deleteTransaction,
