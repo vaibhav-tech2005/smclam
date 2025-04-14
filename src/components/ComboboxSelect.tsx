@@ -9,6 +9,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList
 } from "@/components/ui/command"
 import {
   Popover,
@@ -25,13 +26,22 @@ interface ComboboxSelectProps {
 }
 
 const ComboboxSelect = ({
-  options,
+  options = [], // Provide default empty array
   value,
   onValueChange,
   placeholder = "Select an option",
   emptyText = "No results found"
 }: ComboboxSelectProps) => {
   const [open, setOpen] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState("")
+  
+  // Make sure options is always an array even if undefined is passed
+  const safeOptions = options || []
+  
+  // Filter options based on search query
+  const filteredOptions = safeOptions.filter((option) =>
+    option.label.toLowerCase().includes(searchQuery.toLowerCase())
+  )
   
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -42,34 +52,41 @@ const ComboboxSelect = ({
           aria-expanded={open}
           className="w-full justify-between"
         >
-          {value ? options.find((option) => option.value === value)?.label ?? value : placeholder}
+          {value ? safeOptions.find((option) => option.value === value)?.label ?? value : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command>
-          <CommandInput placeholder={placeholder} />
-          <CommandEmpty>{emptyText}</CommandEmpty>
-          <CommandGroup>
-            {options.map((option) => (
-              <CommandItem
-                key={option.value}
-                value={option.value}
-                onSelect={() => {
-                  onValueChange(option.value)
-                  setOpen(false)
-                }}
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    value === option.value ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                {option.label}
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          <CommandInput 
+            placeholder={placeholder} 
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
+          <CommandList>
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              {filteredOptions.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.value}
+                  onSelect={() => {
+                    onValueChange(option.value)
+                    setOpen(false)
+                    setSearchQuery("")
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === option.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>

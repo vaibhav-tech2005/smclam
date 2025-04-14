@@ -150,7 +150,6 @@ const Transactions = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   
-  // Form state
   const initialFormState = {
     laminateId: "",
     date: new Date().toISOString().split("T")[0],
@@ -161,14 +160,11 @@ const Transactions = () => {
   
   const [formData, setFormData] = useState(initialFormState);
 
-  // Filter transactions
   const filteredTransactions = transactions.filter((transaction) => {
-    // Filter by transaction type
     if (transactionTab !== "all" && transaction.type !== transactionTab) {
       return false;
     }
 
-    // Filter by search query
     const laminate = getLaminateById(transaction.laminateId);
     if (!laminate) return false;
 
@@ -454,7 +450,6 @@ const Transactions = () => {
         </CardContent>
       </Card>
 
-      {/* Add Purchase Dialog */}
       <Dialog open={isAddPurchaseDialogOpen} onOpenChange={setIsAddPurchaseDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -475,7 +470,6 @@ const Transactions = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Add Sale Dialog */}
       <Dialog open={isAddSaleDialogOpen} onOpenChange={setIsAddSaleDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -496,7 +490,6 @@ const Transactions = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Transaction Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -519,7 +512,6 @@ const Transactions = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Transaction Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
