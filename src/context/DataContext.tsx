@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -65,30 +66,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [transactions]);
 
   const updateStockLevels = () => {
-    const stockMap = new Map();
+    // Create a copy of laminates to work with
+    const updatedLaminates = [...laminates];
     
-    // Initialize stock at 0 for all laminates
-    laminates.forEach(laminate => {
-      stockMap.set(laminate.id, 0);
+    // Initialize all stocks to 0
+    updatedLaminates.forEach(laminate => {
+      laminate.currentStock = 0;
     });
     
-    // Calculate stock based on transactions
+    // Create a map for faster lookups
+    const laminateMap = new Map<string, Laminate>();
+    updatedLaminates.forEach(laminate => {
+      laminateMap.set(laminate.id, laminate);
+    });
+    
+    // Process transactions to calculate current stock
     transactions.forEach(transaction => {
-      const currentStock = stockMap.get(transaction.laminateId) || 0;
-      if (transaction.type === "purchase") {
-        stockMap.set(transaction.laminateId, currentStock + transaction.quantity);
-      } else {
-        stockMap.set(transaction.laminateId, currentStock - transaction.quantity);
+      const laminate = laminateMap.get(transaction.laminateId);
+      if (laminate) {
+        if (transaction.type === "purchase") {
+          laminate.currentStock += transaction.quantity;
+        } else {
+          laminate.currentStock -= transaction.quantity;
+        }
       }
     });
     
-    // Update laminates with calculated stock
-    setLaminates(prevLaminates => 
-      prevLaminates.map(laminate => ({
-        ...laminate,
-        currentStock: stockMap.get(laminate.id) || 0
-      }))
-    );
+    // Update the laminates state with calculated stock levels
+    setLaminates(updatedLaminates);
   };
 
   // Recalculate stock whenever transactions or laminates change
