@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format, parseISO } from "date-fns";
+import { ComboboxSelect } from "@/components/ComboboxSelect";
 
 const TransactionForm = ({
   formData,
@@ -55,27 +56,24 @@ const TransactionForm = ({
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
 }) => {
+  // Transform laminates to options format for ComboboxSelect
+  const laminateOptions = laminates.map((laminate) => ({
+    label: `${laminate.brandName} - ${laminate.laminateNumber} (${laminate.laminateFinish})`,
+    value: laminate.id
+  }));
+
   return (
     <form onSubmit={onSubmit}>
       <div className="space-y-4 py-2">
         <div className="space-y-2">
           <Label htmlFor="laminateId">Laminate</Label>
-          <Select
+          <ComboboxSelect
+            options={laminateOptions}
             value={formData.laminateId}
             onValueChange={(value) => handleSelectChange("laminateId", value)}
-            required
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a laminate" />
-            </SelectTrigger>
-            <SelectContent>
-              {laminates.map((laminate) => (
-                <SelectItem key={laminate.id} value={laminate.id}>
-                  {laminate.brandName} - {laminate.laminateNumber} ({laminate.laminateFinish})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Select or type a laminate"
+            emptyText="No laminates found"
+          />
         </div>
 
         <div className="space-y-2">
