@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -127,27 +126,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.success("Laminate deleted");
   };
 
-  // New function to clear all laminates without transactions
+  // Modified function to clear ALL laminates regardless of transactions
   const clearAllLaminates = () => {
-    // Get IDs of laminates with transactions
+    // Get laminates with transactions
     const laminatesWithTransactions = new Set(
       transactions.map(t => t.laminateId)
     );
     
-    // Filter out laminates that have transactions
-    const newLaminates = laminates.filter(
-      laminate => laminatesWithTransactions.has(laminate.id)
-    );
+    // Delete all laminates
+    setLaminates([]);
     
-    const deletedCount = laminates.length - newLaminates.length;
+    // Also delete all transactions since they would reference non-existent laminates
+    setTransactions([]);
     
-    if (deletedCount === 0) {
-      toast.error("No laminates could be deleted - all have associated transactions");
-      return;
-    }
-    
-    setLaminates(newLaminates);
-    toast.success(`Deleted ${deletedCount} laminates without transactions`);
+    toast.success("All laminates and associated transactions have been deleted");
   };
 
   const addTransaction = (transaction: Omit<Transaction, "id">) => {

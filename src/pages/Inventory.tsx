@@ -40,14 +40,12 @@ const Inventory = () => {
   const [isClearDatabaseDialogOpen, setIsClearDatabaseDialogOpen] = useState(false);
   const [selectedLaminate, setSelectedLaminate] = useState<Laminate | null>(null);
   
-  // Form state
   const [formData, setFormData] = useState({
     brandName: "",
     laminateNumber: "",
     laminateFinish: ""
   });
 
-  // Filter laminates based on search query
   const filteredLaminates = laminates.filter(
     (laminate) =>
       laminate.brandName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -259,7 +257,6 @@ const Inventory = () => {
         </CardContent>
       </Card>
 
-      {/* Add Laminate Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -318,7 +315,6 @@ const Inventory = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Laminate Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -377,14 +373,12 @@ const Inventory = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Laminate Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Laminate</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this laminate? This action cannot be undone.
-              You can only delete laminates with no associated transactions.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -415,7 +409,6 @@ const Inventory = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Clear All Laminates Dialog */}
       <AlertDialog open={isClearDatabaseDialogOpen} onOpenChange={setIsClearDatabaseDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -423,13 +416,13 @@ const Inventory = () => {
               <AlertCircle className="h-5 w-5" /> Delete Entire Laminate Database
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete ALL laminates in your inventory. This action cannot be undone.
-              Only laminates with no associated transactions will be deleted.
+              This will permanently delete ALL laminates in your inventory and ALL associated transactions.
+              This action cannot be undone. Are you absolutely sure?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
             <div className="rounded-md bg-destructive/10 p-4 text-destructive font-medium">
-              Warning: You are about to delete your entire laminate database. This is a permanent action.
+              Warning: You are about to delete your entire laminate database and transaction history. This is a permanent action.
             </div>
           </div>
           <AlertDialogFooter>
@@ -445,7 +438,7 @@ const Inventory = () => {
               variant="destructive"
               onClick={handleClearAllLaminates}
             >
-              Delete All Laminates
+              Delete All Data
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
