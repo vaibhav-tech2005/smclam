@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -306,16 +305,14 @@ const Transactions = () => {
             Manage your purchases and sales
           </p>
         </div>
-        {isAdmin && (
-          <div className="flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
-            <Button onClick={openAddPurchaseDialog}>
-              <ArrowDown className="mr-1 h-4 w-4" /> Add Purchase
-            </Button>
-            <Button onClick={openAddSaleDialog}>
-              <ArrowUp className="mr-1 h-4 w-4" /> Add Sale
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
+          <Button onClick={openAddPurchaseDialog}>
+            <ArrowDown className="mr-1 h-4 w-4" /> Add Purchase
+          </Button>
+          <Button onClick={openAddSaleDialog}>
+            <ArrowUp className="mr-1 h-4 w-4" /> Add Sale
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="all" value={transactionTab} onValueChange={setTransactionTab} className="w-full">

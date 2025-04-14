@@ -40,8 +40,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setSupabaseUser(supaUser);
           
           // Convert Supabase user to our app's user format
-          // For now, we'll assign 'user' role by default
-          // In a real app, you'd fetch role info from a user_roles table
           setUser({
             id: supaUser.id,
             username: supaUser.email || "user",
@@ -97,6 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
 
+      // Set session persistence explicitly
+      localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
       toast.success("Login successful!");
     } catch (error: any) {
       console.error("Login error:", error);
@@ -115,6 +115,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setUser(null);
+      // Clear any local storage auth data
+      localStorage.removeItem('supabase.auth.token');
       toast.success("Logged out successfully");
     } catch (error: any) {
       console.error("Logout error:", error);

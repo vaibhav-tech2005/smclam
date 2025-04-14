@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -29,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const Inventory = () => {
   const { laminates, addLaminate, updateLaminate, deleteLaminate, clearAllLaminates } = useData();
@@ -149,16 +148,14 @@ const Inventory = () => {
             Manage your laminate inventory
           </p>
         </div>
-        {isAdmin && (
-          <div className="flex gap-2">
-            <Button onClick={openAddDialog}>
-              <Plus className="mr-1 h-4 w-4" /> Add Laminate
-            </Button>
-            <Button onClick={openClearDatabaseDialog} variant="destructive">
-              <Trash2 className="mr-1 h-4 w-4" /> Delete All Laminates
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button onClick={openAddDialog}>
+            <Plus className="mr-1 h-4 w-4" /> Add Laminate
+          </Button>
+          <Button onClick={openClearDatabaseDialog} variant="destructive">
+            <Trash2 className="mr-1 h-4 w-4" /> Delete All Laminates
+          </Button>
+        </div>
       </div>
 
       <Card>
