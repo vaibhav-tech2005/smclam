@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -149,6 +150,8 @@ const Transactions = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  // Add a state to force re-render when transactions change
+  const [transactionsKey, setTransactionsKey] = useState(0);
   
   const initialFormState = {
     laminateId: "",
@@ -159,6 +162,11 @@ const Transactions = () => {
   };
   
   const [formData, setFormData] = useState(initialFormState);
+
+  // Effect to update the key when transactions change
+  useEffect(() => {
+    setTransactionsKey(prev => prev + 1);
+  }, [transactions]);
 
   const filteredTransactions = transactions.filter((transaction) => {
     if (transactionTab !== "all" && transaction.type !== transactionTab) {
@@ -342,7 +350,7 @@ const Transactions = () => {
                   {isAdmin && <TableHead className="w-[100px]">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody key={transactionsKey}>
                 {sortedTransactions.length === 0 ? (
                   <TableRow>
                     <TableCell
