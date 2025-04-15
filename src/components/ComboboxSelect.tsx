@@ -46,6 +46,13 @@ export const ComboboxSelect = ({
   // Find the selected option for display
   const selectedOption = safeOptions.find((option) => option.value === value)
   
+  // Debug for troubleshooting
+  React.useEffect(() => {
+    console.log("ComboboxSelect - value:", value);
+    console.log("ComboboxSelect - selectedOption:", selectedOption);
+    console.log("ComboboxSelect - options count:", safeOptions.length);
+  }, [value, selectedOption, safeOptions]);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -54,12 +61,13 @@ export const ComboboxSelect = ({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between bg-background"
+          onClick={() => setOpen(!open)}
         >
           {selectedOption ? selectedOption.label : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent className="w-full p-0 z-50" align="start">
         <Command>
           <CommandInput 
             placeholder={`Search ${placeholder.toLowerCase()}...`}
@@ -74,9 +82,10 @@ export const ComboboxSelect = ({
                   key={option.value}
                   value={option.value}
                   onSelect={() => {
-                    onValueChange(option.value)
-                    setOpen(false)
-                    setSearchQuery("")
+                    console.log("Selected option:", option);
+                    onValueChange(option.value);
+                    setOpen(false);
+                    setSearchQuery("");
                   }}
                 >
                   <Check

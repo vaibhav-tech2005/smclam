@@ -63,6 +63,10 @@ const TransactionForm = ({
     value: laminate.id
   }));
 
+  // Debug for troubleshooting
+  console.log("TransactionForm - formData:", formData);
+  console.log("TransactionForm - laminateOptions:", laminateOptions);
+  
   return (
     <form onSubmit={onSubmit}>
       <div className="space-y-4 py-2">
@@ -71,7 +75,10 @@ const TransactionForm = ({
           <ComboboxSelect
             options={laminateOptions}
             value={formData.laminateId}
-            onValueChange={(value) => handleSelectChange("laminateId", value)}
+            onValueChange={(value) => {
+              console.log("ComboboxSelect changed value to:", value);
+              handleSelectChange("laminateId", value);
+            }}
             placeholder="Select or type a laminate"
             emptyText="No laminates found"
           />
