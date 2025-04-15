@@ -1,8 +1,7 @@
 
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -11,11 +10,7 @@ import {
   CommandItem,
   CommandList
 } from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
 
 interface ComboboxSelectProps {
   options: { label: string; value: string }[]
@@ -32,7 +27,6 @@ export const ComboboxSelect = ({
   placeholder = "Select an option",
   emptyText = "No results found"
 }: ComboboxSelectProps) => {
-  const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   
   // Make sure options is always an array
@@ -53,65 +47,63 @@ export const ComboboxSelect = ({
     console.log("ComboboxSelect - options count:", safeOptions.length);
   }, [value, selectedOption, safeOptions]);
 
-  // This function ensures we properly handle the selection
+  // This function handles the selection of an option
   const handleSelect = (currentValue: string) => {
     console.log("Handle select called with:", currentValue);
     const selectedOption = safeOptions.find((option) => option.value === currentValue);
     if (selectedOption) {
       console.log("Found matching option:", selectedOption);
       onValueChange(currentValue);
-      setOpen(false);
       setSearchQuery("");
     }
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between bg-background"
-          onClick={() => setOpen(!open)}
-        >
-          {selectedOption ? selectedOption.label : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0 z-50" align="start">
-        <Command>
-          <CommandInput 
-            placeholder={`Search ${placeholder.toLowerCase()}...`}
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          />
-          <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup>
-              {filteredOptions.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.value}
-                  onSelect={(currentValue) => {
-                    console.log("CommandItem onSelect with:", currentValue);
-                    console.log("Selected option:", option);
-                    handleSelect(option.value);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === option.value ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <div className="relative w-full">
+      <Input
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder={placeholder}
+        className="w-full"
+      />
+      {searchQuery && (
+        <div className="absolute top-full left-0 w-full z-50 mt-1 bg-white border border-input rounded-md shadow-md">
+          <Command>
+            <CommandList>
+              <CommandEmpty>{emptyText}</CommandEmpty>
+              <CommandGroup>
+                {filteredOptions.length > 0 ? (
+                  filteredOptions.map((option) => (
+                    <CommandItem
+                      key={option.value}
+                      value={option.value}
+                      onSelect={() => {
+                        console.log("CommandItem onSelect with option:", option);
+                        handleSelect(option.value);
+                      }}
+                      className="cursor-pointer hover:bg-accent"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          value === option.value ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {option.label}
+                    </CommandItem>
+                  ))
+                ) : null}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </div>
+      )}
+      
+      {selectedOption && !searchQuery && (
+        <div className="mt-2 text-sm">
+          Selected: <span className="font-medium">{selectedOption.label}</span>
+        </div>
+      )}
+    </div>
   )
 }

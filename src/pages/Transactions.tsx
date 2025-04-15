@@ -76,8 +76,8 @@ const TransactionForm = ({
               console.log("ComboboxSelect changed value to:", value);
               handleSelectChange("laminateId", value);
             }}
-            placeholder="Select or type a laminate"
-            emptyText="No laminates found"
+            placeholder="Type to search for a laminate"
+            emptyText="No matching laminates found"
           />
         </div>
 
