@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,13 +56,11 @@ const TransactionForm = ({
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
 }) => {
-  // Transform laminates to options format for ComboboxSelect
   const laminateOptions = laminates.map((laminate) => ({
     label: `${laminate.brandName} - ${laminate.laminateNumber} (${laminate.laminateFinish})`,
     value: laminate.id
   }));
 
-  // Debug for troubleshooting
   console.log("TransactionForm - formData:", formData);
   console.log("TransactionForm - laminateOptions:", laminateOptions);
   
@@ -157,7 +154,6 @@ const Transactions = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  // Add a state to force re-render when transactions change
   const [transactionsKey, setTransactionsKey] = useState(0);
   
   const initialFormState = {
@@ -170,7 +166,6 @@ const Transactions = () => {
   
   const [formData, setFormData] = useState(initialFormState);
 
-  // Effect to update the key when transactions change
   useEffect(() => {
     setTransactionsKey(prev => prev + 1);
   }, [transactions]);
@@ -205,6 +200,7 @@ const Transactions = () => {
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    console.log(`Field ${name} changing to: ${value}`);
     setFormData(prev => ({
       ...prev,
       [name]: name === "quantity" ? parseInt(value) : value
@@ -212,10 +208,12 @@ const Transactions = () => {
   };
 
   const handleSelectChange = (name: string, value: string) => {
+    console.log(`Select ${name} changing to: ${value}`);
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+    console.log("Updated formData:", {...formData, [name]: value});
   };
 
   const openAddPurchaseDialog = () => {
@@ -248,6 +246,13 @@ const Transactions = () => {
   const handleAddPurchaseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log("Submitting purchase with data:", formData);
+    
+    if (!formData.laminateId) {
+      alert("Please select a laminate first");
+      return;
+    }
+    
     addTransaction({
       type: "purchase",
       laminateId: formData.laminateId,
@@ -257,10 +262,18 @@ const Transactions = () => {
     });
     
     setIsAddPurchaseDialogOpen(false);
+    setFormData(initialFormState);
   };
 
   const handleAddSaleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log("Submitting sale with data:", formData);
+    
+    if (!formData.laminateId) {
+      alert("Please select a laminate first");
+      return;
+    }
     
     addTransaction({
       type: "sale",
@@ -272,6 +285,7 @@ const Transactions = () => {
     });
     
     setIsAddSaleDialogOpen(false);
+    setFormData(initialFormState);
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {

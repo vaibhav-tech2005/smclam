@@ -36,7 +36,7 @@ export const ComboboxSelect = ({
   const [searchQuery, setSearchQuery] = React.useState("")
   
   // Make sure options is always an array
-  const safeOptions = Array.isArray(options) ? options : []
+  const safeOptions = Array.isArray(options) ? options : [];
   
   // Filter options based on search query
   const filteredOptions = safeOptions.filter((option) =>
@@ -52,6 +52,18 @@ export const ComboboxSelect = ({
     console.log("ComboboxSelect - selectedOption:", selectedOption);
     console.log("ComboboxSelect - options count:", safeOptions.length);
   }, [value, selectedOption, safeOptions]);
+
+  // This function ensures we properly handle the selection
+  const handleSelect = (currentValue: string) => {
+    console.log("Handle select called with:", currentValue);
+    const selectedOption = safeOptions.find((option) => option.value === currentValue);
+    if (selectedOption) {
+      console.log("Found matching option:", selectedOption);
+      onValueChange(currentValue);
+      setOpen(false);
+      setSearchQuery("");
+    }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -81,11 +93,10 @@ export const ComboboxSelect = ({
                 <CommandItem
                   key={option.value}
                   value={option.value}
-                  onSelect={() => {
+                  onSelect={(currentValue) => {
+                    console.log("CommandItem onSelect with:", currentValue);
                     console.log("Selected option:", option);
-                    onValueChange(option.value);
-                    setOpen(false);
-                    setSearchQuery("");
+                    handleSelect(option.value);
                   }}
                 >
                   <Check
