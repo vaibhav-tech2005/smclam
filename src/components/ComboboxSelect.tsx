@@ -25,7 +25,7 @@ interface ComboboxSelectProps {
   emptyText?: string
 }
 
-const ComboboxSelect = ({
+export const ComboboxSelect = ({
   options = [], // Provide default empty array
   value,
   onValueChange,
@@ -35,13 +35,16 @@ const ComboboxSelect = ({
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   
-  // Make sure options is always an array even if undefined is passed
-  const safeOptions = options || []
+  // Make sure options is always an array
+  const safeOptions = Array.isArray(options) ? options : []
   
   // Filter options based on search query
   const filteredOptions = safeOptions.filter((option) =>
     option.label.toLowerCase().includes(searchQuery.toLowerCase())
   )
+  
+  // Find the selected option for display
+  const selectedOption = safeOptions.find((option) => option.value === value)
   
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -50,16 +53,16 @@ const ComboboxSelect = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between bg-background"
         >
-          {value ? safeOptions.find((option) => option.value === value)?.label ?? value : placeholder}
+          {selectedOption ? selectedOption.label : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
+      <PopoverContent className="w-full p-0" align="start">
         <Command>
           <CommandInput 
-            placeholder={placeholder} 
+            placeholder={`Search ${placeholder.toLowerCase()}...`}
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
@@ -92,5 +95,3 @@ const ComboboxSelect = ({
     </Popover>
   )
 }
-
-export { ComboboxSelect }

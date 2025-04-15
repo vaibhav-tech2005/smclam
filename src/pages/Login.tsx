@@ -26,6 +26,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [signUpLoading, setSignUpLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -42,10 +43,17 @@ const Login = () => {
   }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (values: LoginFormValues) => {
-    await login(values.email, values.password);
+    setLoginError(null);
+    try {
+      await login(values.email, values.password);
+    } catch (error: any) {
+      // Error handling is now in the login function in AuthContext
+      setLoginError(error.message || "Failed to login");
+    }
   };
 
   const handleSignUp = async (values: LoginFormValues) => {
+    setLoginError(null);
     try {
       setSignUpLoading(true);
       const { data, error } = await supabase.auth.signUp({
@@ -63,10 +71,17 @@ const Login = () => {
       }
     } catch (error: any) {
       console.error("Sign up error:", error);
+      setLoginError(error.message || "Failed to create account");
       toast.error(error.message || "Failed to create account");
     } finally {
       setSignUpLoading(false);
     }
+  };
+
+  // For quick testing purposes - add a demo login notice
+  const handleDemoLogin = () => {
+    form.setValue('email', 'demo@example.com');
+    form.setValue('password', 'password123');
   };
 
   return (
@@ -87,6 +102,13 @@ const Login = () => {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(isSignUp ? handleSignUp : handleSubmit)}>
             <CardContent className="space-y-4">
+              {loginError && (
+                <div className="bg-destructive/15 p-3 rounded-md flex items-start text-destructive">
+                  <AlertCircle className="h-4 w-4 mr-2 mt-0.5" />
+                  <span className="text-sm">{loginError}</span>
+                </div>
+              )}
+              
               <FormField
                 control={form.control}
                 name="email"
@@ -125,7 +147,12 @@ const Login = () => {
                 )}
               />
 
-              {/* Info message for testing accounts removed as we're now using real authentication */}
+              <div className="text-xs text-muted-foreground">
+                <p>For demo purposes, you can create an account or use:</p>
+                <p className="font-medium cursor-pointer hover:underline mt-1" onClick={handleDemoLogin}>
+                  demo@example.com / password123
+                </p>
+              </div>
             </CardContent>
 
             <CardFooter className="flex flex-col gap-4">
