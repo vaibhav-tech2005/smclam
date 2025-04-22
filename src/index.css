@@ -5,35 +5,35 @@
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
-    --foreground: 142 100% 50%;
+    --background: 0 0% 7%;
+    --foreground: 142 70% 60%;
 
-    --card: 0 0% 0%;
-    --card-foreground: 142 100% 50%;
+    --card: 0 0% 9%;
+    --card-foreground: 142 70% 60%;
 
-    --popover: 0 0% 0%;
-    --popover-foreground: 142 100% 50%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 142 70% 60%;
 
-    --primary: 142 100% 50%;
-    --primary-foreground: 0 0% 0%;
+    --primary: 142 70% 50%;
+    --primary-foreground: 0 0% 7%;
 
-    --secondary: 142 70% 30%;
-    --secondary-foreground: 142 100% 50%;
+    --secondary: 142 30% 20%;
+    --secondary-foreground: 142 70% 60%;
 
-    --muted: 0 0% 20%;
-    --muted-foreground: 142 70% 80%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 142 30% 70%;
 
-    --accent: 142 70% 30%;
-    --accent-foreground: 142 100% 50%;
+    --accent: 142 30% 20%;
+    --accent-foreground: 142 70% 60%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 142 70% 30%;
-    --input: 142 70% 30%;
-    --ring: 142 100% 50%;
+    --border: 142 30% 20%;
+    --input: 142 30% 20%;
+    --ring: 142 70% 50%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 }
 
@@ -42,6 +42,15 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* Add smooth transitions for better UX */
+@layer utilities {
+  .transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
   }
 }

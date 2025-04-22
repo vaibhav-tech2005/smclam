@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +46,6 @@ const Login = () => {
     try {
       await login(values.email, values.password);
     } catch (error: any) {
-      // Error handling is now in the login function in AuthContext
       setLoginError(error.message || "Failed to login");
     }
   };
@@ -78,20 +76,19 @@ const Login = () => {
     }
   };
 
-  // For quick testing purposes - add a demo login notice
   const handleDemoLogin = () => {
     form.setValue('email', 'demo@example.com');
     form.setValue('password', 'password123');
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Laminate Stock Flow</h1>
-        <p className="text-gray-500">Inventory management made simple</p>
+        <h1 className="text-4xl font-bold text-primary mb-2">Laminate Inventory</h1>
+        <p className="text-muted-foreground">Inventory management made simple</p>
       </div>
 
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md border-border/50 shadow-lg">
         <CardHeader>
           <CardTitle className="text-xl">{isSignUp ? "Create Account" : "Login"}</CardTitle>
           <CardDescription>
@@ -149,7 +146,7 @@ const Login = () => {
 
               <div className="text-xs text-muted-foreground">
                 <p>For demo purposes, you can create an account or use:</p>
-                <p className="font-medium cursor-pointer hover:underline mt-1" onClick={handleDemoLogin}>
+                <p className="font-medium cursor-pointer hover:text-primary transition-colors mt-1" onClick={handleDemoLogin}>
                   demo@example.com / password123
                 </p>
               </div>
@@ -157,13 +154,13 @@ const Login = () => {
 
             <CardFooter className="flex flex-col gap-4">
               <Button
-                className="w-full"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                 type="submit"
                 disabled={isLoading || signUpLoading}
               >
                 {(isLoading || signUpLoading) ? (
                   <div className="flex items-center">
-                    <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-white rounded-full" />
+                    <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full" />
                     {isSignUp ? "Creating account..." : "Logging in..."}
                   </div>
                 ) : (
@@ -171,16 +168,15 @@ const Login = () => {
                 )}
               </Button>
 
-              <div className="text-center">
-                <Button
-                  variant="link"
-                  type="button"
-                  onClick={() => setIsSignUp(!isSignUp)}
-                  disabled={isLoading || signUpLoading}
-                >
-                  {isSignUp ? "Already have an account? Log in" : "Don't have an account? Sign up"}
-                </Button>
-              </div>
+              <Button
+                variant="link"
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                disabled={isLoading || signUpLoading}
+                className="text-muted-foreground hover:text-primary"
+              >
+                {isSignUp ? "Already have an account? Log in" : "Don't have an account? Sign up"}
+              </Button>
             </CardFooter>
           </form>
         </Form>

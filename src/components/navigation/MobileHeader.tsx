@@ -12,20 +12,20 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ onMenuToggle }) => {
   const { user } = useAuth();
 
   return (
-    <header className="bg-black border-b border-gray-700 py-3 px-4 flex items-center justify-between md:hidden shadow-sm">
+    <header className="bg-background border-b border-border/50 py-3 px-4 flex items-center justify-between md:hidden shadow-sm">
       <div className="flex items-center space-x-3">
         <Button
           variant="ghost"
           size="icon"
           onClick={onMenuToggle}
-          className="text-green-500 hover:text-green-400"
+          className="text-primary hover:text-primary/90 hover:bg-primary/10"
         >
           <Menu className="h-6 w-6" />
         </Button>
-        <h1 className="font-semibold text-lg text-green-500">Laminate Inventory</h1>
+        <h1 className="font-semibold text-lg text-primary">Laminate Inventory</h1>
       </div>
       <div className="flex items-center">
-        <span className="text-sm font-medium mr-2 text-green-500">{user?.username}</span>
+        <span className="text-sm font-medium text-muted-foreground">{user?.username}</span>
       </div>
     </header>
   );
