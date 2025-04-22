@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link } from "react-router-dom";
 import { X, LogOut } from "lucide-react";
@@ -24,41 +23,39 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-40 bg-white flex flex-col md:hidden">
-      <div className="p-4 border-b border-gray-200 flex justify-between">
-        <h1 className="text-xl font-bold text-primary">Laminate Stock</h1>
-        <Button variant="ghost" size="icon" onClick={onClose}>
+    <div className="fixed inset-0 z-40 bg-black flex flex-col md:hidden">
+      <div className="p-4 border-b border-gray-700 flex justify-between">
+        <h1 className="text-xl font-bold text-green-500">Laminate Inventory</h1>
+        <Button variant="ghost" size="icon" onClick={onClose} className="text-green-500 hover:text-green-400">
           <X className="h-6 w-6" />
         </Button>
       </div>
       
       <nav className="flex-1 p-4 space-y-1">
-        {navItems
-          .filter((item) => !item.adminOnly || isAdmin)
-          .map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={onClose}
-              className="flex items-center px-3 py-3 text-base rounded-md transition-colors text-gray-700 hover:bg-gray-100"
-            >
-              {item.icon}
-              {item.name}
-            </Link>
-          ))}
+        {navItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            onClick={onClose}
+            className="flex items-center px-3 py-3 text-base rounded-md transition-colors text-green-500 hover:bg-gray-900"
+          >
+            {item.icon}
+            {item.name}
+          </Link>
+        ))}
       </nav>
       
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-700">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium">{user?.username}</p>
-            <p className="text-xs text-gray-500">{user?.role}</p>
+            <p className="text-sm font-medium text-green-500">{user?.username}</p>
+            <p className="text-xs text-green-400">{user?.role}</p>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleLogout}
-            className="text-gray-500 hover:text-gray-800"
+            className="text-green-500 hover:text-green-400"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
