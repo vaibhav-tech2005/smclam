@@ -1,6 +1,6 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 // Types
 export interface Laminate {
@@ -36,132 +36,201 @@ interface DataContextType {
   getLaminateById: (id: string) => Laminate | undefined;
 }
 
-// Generate a random ID
-const generateId = () => Math.random().toString(36).substring(2, 15);
-
-// Initialize with empty arrays instead of sample data
-const initialLaminates: Laminate[] = [];
-const initialTransactions: Transaction[] = [];
-
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [laminates, setLaminates] = useState<Laminate[]>(() => {
-    const stored = localStorage.getItem("laminates");
-    return stored ? JSON.parse(stored) : initialLaminates;
-  });
-  
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const stored = localStorage.getItem("transactions");
-    return stored ? JSON.parse(stored) : initialTransactions;
-  });
+  const [laminates, setLaminates] = useState<Laminate[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  // Save to localStorage whenever data changes
-  useEffect(() => {
-    localStorage.setItem("laminates", JSON.stringify(laminates));
-  }, [laminates]);
+  // Fetch laminates from Supabase
+  const fetchLaminates = async () => {
+    const { data, error } = await supabase
+      .from('laminates')
+      .select('*');
+    
+    if (error) {
+      toast.error("Error fetching laminates");
+      return;
+    }
+    
+    setLaminates(data || []);
+  };
 
-  useEffect(() => {
-    localStorage.setItem("transactions", JSON.stringify(transactions));
-  }, [transactions]);
+  // Fetch transactions from Supabase
+  const fetchTransactions = async () => {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*');
+    
+    if (error) {
+      toast.error("Error fetching transactions");
+      return;
+    }
+    
+    setTransactions(data || []);
+  };
 
+  // Update stock levels
   const updateStockLevels = () => {
-    // Create a copy of laminates to work with
-    const updatedLaminates = [...laminates];
-    
-    // Initialize all stocks to 0
-    updatedLaminates.forEach(laminate => {
-      laminate.currentStock = 0;
-    });
-    
-    // Create a map for faster lookups
-    const laminateMap = new Map<string, Laminate>();
-    updatedLaminates.forEach(laminate => {
-      laminateMap.set(laminate.id, laminate);
-    });
-    
-    // Process transactions to calculate current stock
+    const updatedLaminates = laminates.map(laminate => ({
+      ...laminate,
+      currentStock: 0
+    }));
+
+    const laminateMap = new Map(updatedLaminates.map(l => [l.id, l]));
+
     transactions.forEach(transaction => {
       const laminate = laminateMap.get(transaction.laminateId);
       if (laminate) {
-        if (transaction.type === "purchase") {
-          laminate.currentStock += transaction.quantity;
-        } else {
-          laminate.currentStock -= transaction.quantity;
-        }
+        laminate.currentStock += transaction.type === 'purchase' 
+          ? transaction.quantity 
+          : -transaction.quantity;
       }
     });
-    
-    // Update the laminates state with calculated stock levels
-    setLaminates(updatedLaminates);
+
+    setLaminates(Array.from(laminateMap.values()));
   };
 
-  // Recalculate stock whenever transactions or laminates change
+  // Initial data fetch on component mount
+  useEffect(() => {
+    fetchLaminates();
+    fetchTransactions();
+  }, []);
+
+  // Recalculate stock when transactions change
   useEffect(() => {
     updateStockLevels();
   }, [transactions]);
 
-  const addLaminate = (laminate: Omit<Laminate, "id" | "currentStock">) => {
-    const newLaminate = { 
-      ...laminate, 
-      id: generateId(), 
-      currentStock: 0 
-    };
-    setLaminates([...laminates, newLaminate]);
-    toast.success(`${laminate.brandName} ${laminate.laminateNumber} added`);
+  const addLaminate = async (laminate: Omit<Laminate, "id" | "currentStock">) => {
+    const { data, error } = await supabase
+      .from('laminates')
+      .insert({
+        brand_name: laminate.brandName,
+        laminate_number: laminate.laminateNumber,
+        laminate_finish: laminate.laminateFinish
+      })
+      .select();
+
+    if (error) {
+      toast.error("Error adding laminate");
+      return;
+    }
+
+    if (data) {
+      toast.success(`${laminate.brandName} ${laminate.laminateNumber} added`);
+    }
   };
 
-  const updateLaminate = (id: string, updates: Partial<Omit<Laminate, "id" | "currentStock">>) => {
-    setLaminates(laminates.map(laminate => 
-      laminate.id === id ? { ...laminate, ...updates } : laminate
-    ));
+  const updateLaminate = async (id: string, updates: Partial<Omit<Laminate, "id" | "currentStock">>) => {
+    const { error } = await supabase
+      .from('laminates')
+      .update({
+        brand_name: updates.brandName,
+        laminate_number: updates.laminateNumber,
+        laminate_finish: updates.laminateFinish
+      })
+      .eq('id', id);
+  
+    if (error) {
+      toast.error("Error updating laminate");
+      return;
+    }
+  
     toast.success("Laminate updated");
   };
 
-  const deleteLaminate = (id: string) => {
-    // Check if there are any transactions for this laminate
-    const hasTransactions = transactions.some(t => t.laminateId === id);
-    
-    if (hasTransactions) {
-      toast.error("Cannot delete laminate with existing transactions");
+  const deleteLaminate = async (id: string) => {
+    const { error } = await supabase
+      .from('laminates')
+      .delete()
+      .eq('id', id);
+  
+    if (error) {
+      toast.error("Error deleting laminate");
       return;
     }
-    
-    setLaminates(laminates.filter(laminate => laminate.id !== id));
+  
     toast.success("Laminate deleted");
   };
 
-  // Modified function to clear ALL laminates regardless of transactions
-  const clearAllLaminates = () => {
-    // Get laminates with transactions
-    const laminatesWithTransactions = new Set(
-      transactions.map(t => t.laminateId)
-    );
-    
-    // Delete all laminates
-    setLaminates([]);
-    
-    // Also delete all transactions since they would reference non-existent laminates
-    setTransactions([]);
-    
+  const clearAllLaminates = async () => {
+    // First, delete all transactions
+    const { error: transactionsError } = await supabase
+      .from('transactions')
+      .delete()
+      .neq('id', null); // Delete all transactions
+  
+    if (transactionsError) {
+      toast.error("Error clearing transactions");
+      return;
+    }
+  
+    // Then, delete all laminates
+    const { error: laminatesError } = await supabase
+      .from('laminates')
+      .delete()
+      .neq('id', null); // Delete all laminates
+  
+    if (laminatesError) {
+      toast.error("Error clearing laminates");
+      return;
+    }
+  
     toast.success("All laminates and associated transactions have been deleted");
   };
 
-  const addTransaction = (transaction: Omit<Transaction, "id">) => {
-    const newTransaction = { ...transaction, id: generateId() };
-    setTransactions([...transactions, newTransaction]);
+  const addTransaction = async (transaction: Omit<Transaction, "id">) => {
+    const { error } = await supabase
+      .from('transactions')
+      .insert({
+        type: transaction.type,
+        laminate_id: transaction.laminateId,
+        date: transaction.date,
+        quantity: transaction.quantity,
+        customer_name: transaction.customerName,
+        remarks: transaction.remarks
+      });
+  
+    if (error) {
+      toast.error("Error adding transaction");
+      return;
+    }
+  
     toast.success(`${transaction.type === "purchase" ? "Purchase" : "Sale"} recorded`);
   };
 
-  const updateTransaction = (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => {
-    setTransactions(transactions.map(transaction => 
-      transaction.id === id ? { ...transaction, ...updates } : transaction
-    ));
+  const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => {
+    const { error } = await supabase
+      .from('transactions')
+      .update({
+        laminate_id: updates.laminateId,
+        date: updates.date,
+        quantity: updates.quantity,
+        customer_name: updates.customerName,
+        remarks: updates.remarks
+      })
+      .eq('id', id);
+  
+    if (error) {
+      toast.error("Error updating transaction");
+      return;
+    }
+  
     toast.success("Transaction updated");
   };
 
-  const deleteTransaction = (id: string) => {
-    setTransactions(transactions.filter(transaction => transaction.id !== id));
+  const deleteTransaction = async (id: string) => {
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', id);
+  
+    if (error) {
+      toast.error("Error deleting transaction");
+      return;
+    }
+  
     toast.success("Transaction deleted");
   };
 
@@ -222,3 +291,5 @@ export const useData = () => {
   }
   return context;
 };
+
+export default DataContext;
