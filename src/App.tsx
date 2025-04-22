@@ -92,7 +92,7 @@ const App = () => (
               } />
               
               <Route path="/users" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute>
                   <AppLayout>
                     <Users />
                   </AppLayout>
@@ -100,7 +100,7 @@ const App = () => (
               } />
               
               <Route path="/settings" element={
-                <ProtectedRoute requireAdmin={true}>
+                <ProtectedRoute>
                   <AppLayout>
                     <Settings />
                   </AppLayout>

@@ -13,7 +13,6 @@ export interface NavItem {
   name: string;
   path: string;
   icon: React.ReactNode;
-  adminOnly?: boolean;
 }
 
 export const getNavItems = (): NavItem[] => [
@@ -41,13 +40,11 @@ export const getNavItems = (): NavItem[] => [
     name: "User Management",
     path: "/users",
     icon: <Users className="mr-2 h-4 w-4" />,
-    adminOnly: true,
   },
   {
     name: "Settings",
     path: "/settings",
     icon: <Settings className="mr-2 h-4 w-4" />,
-    adminOnly: true,
   },
 ];
 

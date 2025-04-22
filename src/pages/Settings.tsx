@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,20 +22,6 @@ const Settings = () => {
     e.preventDefault();
     toast.success("Settings saved successfully");
   };
-
-  if (!isAdmin) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="text-center">
-          <Lock className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h2 className="mt-2 text-xl font-semibold">Access Denied</h2>
-          <p className="text-muted-foreground">
-            You don't have permission to access this page.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

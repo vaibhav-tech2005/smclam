@@ -7,7 +7,7 @@ import SidebarNavItem from "./SidebarNavItem";
 import { getNavItems } from "./NavItems";
 
 const DesktopSidebar: React.FC = () => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout } = useAuth();
   const navItems = getNavItems();
 
   return (
@@ -17,16 +17,14 @@ const DesktopSidebar: React.FC = () => {
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
-        {navItems
-          .filter((item) => !item.adminOnly || isAdmin)
-          .map((item) => (
-            <SidebarNavItem
-              key={item.path}
-              path={item.path}
-              name={item.name}
-              icon={item.icon}
-            />
-          ))}
+        {navItems.map((item) => (
+          <SidebarNavItem
+            key={item.path}
+            path={item.path}
+            name={item.name}
+            icon={item.icon}
+          />
+        ))}
       </nav>
 
       <div className="p-4 border-t border-gray-200">
