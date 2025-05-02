@@ -97,30 +97,44 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchTransactions();
   }, []);
 
-  // Update a single laminate's stock level
+  // Update a single laminate's stock level based on all its transactions
   const updateLaminateStock = async (laminateId: string) => {
-    // Get all transactions for this laminate
-    const relevantTransactions = transactions.filter(t => t.laminateId === laminateId);
-    
-    // Calculate current stock based on transactions
-    let stock = 0;
-    relevantTransactions.forEach(transaction => {
-      stock += transaction.type === 'purchase' ? transaction.quantity : -transaction.quantity;
-    });
-    
-    // Update the laminate in the database
-    const { error } = await supabase
-      .from('inventory_items')
-      .update({ quantity: stock })
-      .eq('id', laminateId);
+    try {
+      // Get all transactions for this laminate
+      const { data: lamTransactions, error: txError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('inventory_item_id', laminateId);
+      
+      if (txError) {
+        toast.error(`Error retrieving transactions for inventory update`);
+        return false;
+      }
+      
+      // Calculate current stock based on transactions
+      let stock = 0;
+      lamTransactions.forEach(transaction => {
+        stock += transaction.type === 'purchase' ? transaction.quantity : -transaction.quantity;
+      });
+      
+      // Update the laminate in the database
+      const { error: updateError } = await supabase
+        .from('inventory_items')
+        .update({ quantity: stock })
+        .eq('id', laminateId);
 
-    if (error) {
-      const laminate = laminates.find(l => l.id === laminateId);
-      toast.error(`Error updating stock for ${laminate?.brandName} ${laminate?.laminateNumber}`);
+      if (updateError) {
+        const laminate = laminates.find(l => l.id === laminateId);
+        toast.error(`Error updating stock for ${laminate?.brandName} ${laminate?.laminateNumber}`);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error in updateLaminateStock:", error);
+      toast.error("Failed to update inventory");
       return false;
     }
-    
-    return true;
   };
 
   const addLaminate = async (laminate: Omit<Laminate, "id" | "currentStock">) => {
@@ -224,7 +238,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addTransaction = async (transaction: Omit<Transaction, "id">) => {
     // First add the transaction
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('transactions')
       .insert({
         type: transaction.type,
@@ -233,14 +247,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         quantity: transaction.quantity,
         customer_name: transaction.customerName,
         notes: transaction.remarks
-      });
+      })
+      .select();
   
     if (error) {
       toast.error("Error adding transaction");
       return;
     }
 
-    // Then immediately update the stock for this laminate
+    // Then immediately update the inventory stock for this laminate
     const successful = await updateLaminateStock(transaction.laminateId);
   
     if (successful) {
