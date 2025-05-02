@@ -9,7 +9,89 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      inventory_items: {
+        Row: {
+          company: string
+          id: string
+          laminate_finish: string
+          laminate_number: string
+          quantity: number
+        }
+        Insert: {
+          company: string
+          id?: string
+          laminate_finish: string
+          laminate_number: string
+          quantity?: number
+        }
+        Update: {
+          company?: string
+          id?: string
+          laminate_finish?: string
+          laminate_number?: string
+          quantity?: number
+        }
+        Relationships: []
+      }
+      stock: {
+        Row: {
+          created_at: string
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          created_at: string | null
+          customer_name: string | null
+          date: string
+          id: string
+          inventory_item_id: string
+          notes: string | null
+          quantity: number
+          supplier_name: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          customer_name?: string | null
+          date: string
+          id?: string
+          inventory_item_id: string
+          notes?: string | null
+          quantity: number
+          supplier_name?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          customer_name?: string | null
+          date?: string
+          id?: string
+          inventory_item_id?: string
+          notes?: string | null
+          quantity?: number
+          supplier_name?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
