@@ -33,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        console.log("Auth state change:", event, currentSession?.user?.email);
         setSession(currentSession);
         
         if (currentSession?.user) {
@@ -95,12 +96,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
 
-      // Set session persistence explicitly
-      localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
       toast.success("Login successful!");
+      
+      // No need to manually set localStorage as Supabase handles this
+      // Just log success for debugging
+      console.log("Login successful for:", data.user?.email);
     } catch (error: any) {
       console.error("Login error:", error);
       toast.error(error.message || "Login failed");
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -115,8 +119,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       setUser(null);
-      // Clear any local storage auth data
-      localStorage.removeItem('supabase.auth.token');
       toast.success("Logged out successfully");
     } catch (error: any) {
       console.error("Logout error:", error);
