@@ -13,7 +13,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { Link } from "react-router-dom";
 
 const Dashboard = () => {
-  const { laminates, transactions, getTopSellingLaminates } = useData();
+  const { 
+    laminates, 
+    transactions, 
+    getTopSellingLaminates,
+    getLaminatesByCompany,
+    getTransactionsByCompany
+  } = useData();
   
   // Calculate statistics
   const totalLaminates = laminates.length;
@@ -28,6 +34,9 @@ const Dashboard = () => {
   const salesThisMonth = sales.filter(s => s.date.startsWith(thisMonth));
   
   const topSelling = getTopSellingLaminates(5);
+  const laminatesByCompany = getLaminatesByCompany();
+  const purchasesByCompany = getTransactionsByCompany("purchase");
+  const salesByCompany = getTransactionsByCompany("sale");
   
   // Calculate total units purchased and sold this month
   const unitsPurchasedThisMonth = purchasesThisMonth.reduce(
@@ -45,7 +54,7 @@ const Dashboard = () => {
     { name: "Sold", value: unitsSoldThisMonth },
   ];
   
-  const COLORS = ["#0088FE", "#FFBB28"];
+  const COLORS = ["#0088FE", "#FFBB28", "#00C49F", "#FF8042", "#8884D8", "#82CA9D"];
   
   return (
     <div className="space-y-6">
@@ -66,9 +75,20 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalLaminates}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              <Link to="/inventory" className="hover:underline">View inventory</Link>
-            </p>
+            <div className="mt-2 text-xs text-muted-foreground">
+              <div className="font-medium mb-1">By company:</div>
+              <div className="max-h-16 overflow-y-auto">
+                {laminatesByCompany.map((item, idx) => (
+                  <div key={idx} className="flex justify-between">
+                    <span>{item.company}:</span>
+                    <span>{item.count}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2">
+                <Link to="/inventory" className="hover:underline">View inventory</Link>
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -81,10 +101,21 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{unitsPurchasedThisMonth}</div>
-            <p className="text-xs text-muted-foreground flex items-center mt-1">
-              <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
-              From {purchasesThisMonth.length} orders
-            </p>
+            <div className="mt-2 text-xs text-muted-foreground">
+              <div className="font-medium mb-1">By company:</div>
+              <div className="max-h-16 overflow-y-auto">
+                {purchasesByCompany.map((item, idx) => (
+                  <div key={idx} className="flex justify-between">
+                    <span>{item.company}:</span>
+                    <span>{item.units}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="flex items-center mt-2">
+                <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
+                From {purchasesThisMonth.length} orders
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -97,10 +128,21 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{unitsSoldThisMonth}</div>
-            <p className="text-xs text-muted-foreground flex items-center mt-1">
-              <ArrowDown className="h-3 w-3 text-blue-500 mr-1" />
-              From {salesThisMonth.length} orders
-            </p>
+            <div className="mt-2 text-xs text-muted-foreground">
+              <div className="font-medium mb-1">By company:</div>
+              <div className="max-h-16 overflow-y-auto">
+                {salesByCompany.map((item, idx) => (
+                  <div key={idx} className="flex justify-between">
+                    <span>{item.company}:</span>
+                    <span>{item.units}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="flex items-center mt-2">
+                <ArrowDown className="h-3 w-3 text-blue-500 mr-1" />
+                From {salesThisMonth.length} orders
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -138,29 +180,30 @@ const Dashboard = () => {
 
         <Card className="col-span-1">
           <CardHeader>
-            <CardTitle className="text-lg">Stock Status</CardTitle>
+            <CardTitle className="text-lg">Inventory by Company</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={stockData}
+                    data={laminatesByCompany}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
                     outerRadius={80}
                     fill="#8884d8"
                     paddingAngle={5}
-                    dataKey="value"
-                    label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    dataKey="count"
+                    nameKey="company"
+                    label={({company, percent}) => `${company}: ${(percent * 100).toFixed(0)}%`}
                   >
-                    {stockData.map((entry, index) => (
+                    {laminatesByCompany.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Legend />
-                  <Tooltip formatter={(value) => [`${value} items`, 'Count']} />
+                  <Tooltip formatter={(value, name, props) => [`${value} items`, props.payload.company]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>

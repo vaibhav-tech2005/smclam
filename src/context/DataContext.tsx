@@ -35,6 +35,8 @@ interface DataContextType {
   getLowStockLaminates: () => Laminate[];
   getTopSellingLaminates: (limit?: number) => { laminate: Laminate; totalSold: number }[];
   getLaminateById: (id: string) => Laminate | undefined;
+  getLaminatesByCompany: () => { company: string; count: number }[];
+  getTransactionsByCompany: (type: "purchase" | "sale") => { company: string; units: number }[];
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -138,225 +140,260 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addLaminate = async (laminate: Omit<Laminate, "id" | "currentStock">) => {
-    const { data, error } = await supabase
-      .from('inventory_items')
-      .insert({
-        company: laminate.brandName,
-        laminate_number: laminate.laminateNumber,
-        laminate_finish: laminate.laminateFinish,
-        quantity: 0
-      })
-      .select();
+    try {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .insert({
+          company: laminate.brandName,
+          laminate_number: laminate.laminateNumber,
+          laminate_finish: laminate.laminateFinish,
+          quantity: 0
+        })
+        .select();
 
-    if (error) {
-      toast.error("Error adding laminate");
-      return;
-    }
+      if (error) {
+        toast.error("Error adding laminate");
+        return;
+      }
 
-    if (data) {
-      toast.success(`${laminate.brandName} ${laminate.laminateNumber} added`);
-      fetchLaminates(); // Refresh laminates list
+      if (data) {
+        toast.success(`${laminate.brandName} ${laminate.laminateNumber} added`);
+        await fetchLaminates(); // Use await to ensure data is refreshed
+      }
+    } catch (error) {
+      console.error("Error in addLaminate:", error);
+      toast.error("Failed to add laminate");
     }
   };
 
   const updateLaminate = async (id: string, updates: Partial<Omit<Laminate, "id" | "currentStock">>) => {
-    const updateData: any = {};
+    try {
+      const updateData: any = {};
+      
+      if (updates.brandName !== undefined) updateData.company = updates.brandName;
+      if (updates.laminateNumber !== undefined) updateData.laminate_number = updates.laminateNumber;
+      if (updates.laminateFinish !== undefined) updateData.laminate_finish = updates.laminateFinish;
+      
+      const { error } = await supabase
+        .from('inventory_items')
+        .update(updateData)
+        .eq('id', id);
     
-    if (updates.brandName !== undefined) updateData.company = updates.brandName;
-    if (updates.laminateNumber !== undefined) updateData.laminate_number = updates.laminateNumber;
-    if (updates.laminateFinish !== undefined) updateData.laminate_finish = updates.laminateFinish;
+      if (error) {
+        toast.error("Error updating laminate");
+        return;
+      }
     
-    const { error } = await supabase
-      .from('inventory_items')
-      .update(updateData)
-      .eq('id', id);
-  
-    if (error) {
-      toast.error("Error updating laminate");
-      return;
+      toast.success("Laminate updated");
+      await fetchLaminates(); // Use await to ensure data is refreshed
+    } catch (error) {
+      console.error("Error in updateLaminate:", error);
+      toast.error("Failed to update laminate");
     }
-  
-    toast.success("Laminate updated");
-    fetchLaminates(); // Refresh laminates list
   };
 
   const deleteLaminate = async (id: string) => {
-    // First, delete related transactions
-    const { error: transactionError } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('inventory_item_id', id);
+    try {
+      // First, delete related transactions
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('inventory_item_id', id);
+      
+      if (transactionError) {
+        toast.error("Error deleting related transactions");
+        return;
+      }
     
-    if (transactionError) {
-      toast.error("Error deleting related transactions");
-      return;
+      // Then delete the laminate
+      const { error } = await supabase
+        .from('inventory_items')
+        .delete()
+        .eq('id', id);
+    
+      if (error) {
+        toast.error("Error deleting laminate");
+        return;
+      }
+    
+      toast.success("Laminate deleted");
+      await fetchLaminates(); // Use await to ensure data is refreshed
+      await fetchTransactions(); // Use await to ensure data is refreshed
+    } catch (error) {
+      console.error("Error in deleteLaminate:", error);
+      toast.error("Failed to delete laminate");
     }
-  
-    // Then delete the laminate
-    const { error } = await supabase
-      .from('inventory_items')
-      .delete()
-      .eq('id', id);
-  
-    if (error) {
-      toast.error("Error deleting laminate");
-      return;
-    }
-  
-    toast.success("Laminate deleted");
-    fetchLaminates(); // Refresh laminates list
-    fetchTransactions(); // Refresh transactions list
   };
 
   const clearAllLaminates = async () => {
-    // First, delete all transactions
-    const { error: transactionsError } = await supabase
-      .from('transactions')
-      .delete()
-      .neq('id', null); // Delete all transactions
-  
-    if (transactionsError) {
-      toast.error("Error clearing transactions");
-      return;
+    try {
+      // First, delete all transactions
+      const { error: transactionsError } = await supabase
+        .from('transactions')
+        .delete()
+        .neq('id', null); // Delete all transactions
+    
+      if (transactionsError) {
+        toast.error("Error clearing transactions");
+        return;
+      }
+    
+      // Then, delete all laminates
+      const { error: laminatesError } = await supabase
+        .from('inventory_items')
+        .delete()
+        .neq('id', null); // Delete all laminates
+    
+      if (laminatesError) {
+        toast.error("Error clearing laminates");
+        return;
+      }
+    
+      toast.success("All laminates and associated transactions have been deleted");
+      await fetchLaminates(); // Use await to ensure data is refreshed
+      await fetchTransactions(); // Use await to ensure data is refreshed
+    } catch (error) {
+      console.error("Error in clearAllLaminates:", error);
+      toast.error("Failed to clear laminates and transactions");
     }
-  
-    // Then, delete all laminates
-    const { error: laminatesError } = await supabase
-      .from('inventory_items')
-      .delete()
-      .neq('id', null); // Delete all laminates
-  
-    if (laminatesError) {
-      toast.error("Error clearing laminates");
-      return;
-    }
-  
-    toast.success("All laminates and associated transactions have been deleted");
-    fetchLaminates(); // Refresh laminates list
-    fetchTransactions(); // Refresh transactions list
   };
 
   const addTransaction = async (transaction: Omit<Transaction, "id">) => {
-    // First add the transaction
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert({
-        type: transaction.type,
-        inventory_item_id: transaction.laminateId,
-        date: transaction.date,
-        quantity: transaction.quantity,
-        customer_name: transaction.customerName,
-        notes: transaction.remarks
-      })
-      .select();
-  
-    if (error) {
-      toast.error("Error adding transaction");
-      return;
-    }
+    try {
+      // First add the transaction
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          type: transaction.type,
+          inventory_item_id: transaction.laminateId,
+          date: transaction.date,
+          quantity: transaction.quantity,
+          customer_name: transaction.customerName,
+          notes: transaction.remarks
+        })
+        .select();
+    
+      if (error) {
+        toast.error("Error adding transaction");
+        return;
+      }
 
-    // Then immediately update the inventory stock for this laminate
-    const successful = await updateLaminateStock(transaction.laminateId);
-  
-    if (successful) {
-      toast.success(`${transaction.type === "purchase" ? "Purchase" : "Sale"} recorded and inventory updated`);
-      
-      // Refresh both transactions and laminates to show updated data
-      fetchTransactions();
-      fetchLaminates();
-    } else {
-      // We already showed an error in updateLaminateStock if it failed
-      fetchTransactions(); // Still refresh transactions even if stock update failed
+      // Then immediately update the inventory stock for this laminate
+      const successful = await updateLaminateStock(transaction.laminateId);
+    
+      if (successful) {
+        toast.success(`${transaction.type === "purchase" ? "Purchase" : "Sale"} recorded and inventory updated`);
+        
+        // Refresh both transactions and laminates to show updated data
+        await fetchTransactions();
+        await fetchLaminates();
+      } else {
+        // We already showed an error in updateLaminateStock if it failed
+        await fetchTransactions(); // Still refresh transactions even if stock update failed
+      }
+    } catch (error) {
+      console.error("Error in addTransaction:", error);
+      toast.error("Failed to add transaction");
     }
   };
 
   const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => {
-    // First, get the current transaction to know which laminate to update
-    const transaction = transactions.find(t => t.id === id);
-    if (!transaction) {
-      toast.error("Transaction not found");
-      return;
+    try {
+      // First, get the current transaction to know which laminate to update
+      const transaction = transactions.find(t => t.id === id);
+      if (!transaction) {
+        toast.error("Transaction not found");
+        return;
+      }
+      
+      const updateData: any = {};
+      
+      if (updates.laminateId !== undefined) updateData.inventory_item_id = updates.laminateId;
+      if (updates.date !== undefined) updateData.date = updates.date;
+      if (updates.quantity !== undefined) updateData.quantity = updates.quantity;
+      if (updates.customerName !== undefined) updateData.customer_name = updates.customerName;
+      if (updates.remarks !== undefined) updateData.notes = updates.remarks;
+      
+      const { error } = await supabase
+        .from('transactions')
+        .update(updateData)
+        .eq('id', id);
+    
+      if (error) {
+        toast.error("Error updating transaction");
+        return;
+      }
+    
+      // List of laminates that need stock updates
+      const laminatesToUpdate = new Set<string>();
+      
+      // Always update the current laminate
+      laminatesToUpdate.add(transaction.laminateId);
+      
+      // If laminate was changed, also update the new laminate
+      if (updates.laminateId && updates.laminateId !== transaction.laminateId) {
+        laminatesToUpdate.add(updates.laminateId);
+      }
+      
+      // Update stock levels for all affected laminates
+      let allSuccessful = true;
+      for (const laminateId of laminatesToUpdate) {
+        const success = await updateLaminateStock(laminateId);
+        if (!success) allSuccessful = false;
+      }
+      
+      if (allSuccessful) {
+        toast.success("Transaction updated and inventory adjusted");
+      } else {
+        toast.warning("Transaction updated but there was an issue updating inventory");
+      }
+      
+      // Refresh data
+      await fetchTransactions();
+      await fetchLaminates();
+    } catch (error) {
+      console.error("Error in updateTransaction:", error);
+      toast.error("Failed to update transaction");
     }
-    
-    const updateData: any = {};
-    
-    if (updates.laminateId !== undefined) updateData.inventory_item_id = updates.laminateId;
-    if (updates.date !== undefined) updateData.date = updates.date;
-    if (updates.quantity !== undefined) updateData.quantity = updates.quantity;
-    if (updates.customerName !== undefined) updateData.customer_name = updates.customerName;
-    if (updates.remarks !== undefined) updateData.notes = updates.remarks;
-    
-    const { error } = await supabase
-      .from('transactions')
-      .update(updateData)
-      .eq('id', id);
-  
-    if (error) {
-      toast.error("Error updating transaction");
-      return;
-    }
-  
-    // List of laminates that need stock updates
-    const laminatesToUpdate = new Set<string>();
-    
-    // Always update the current laminate
-    laminatesToUpdate.add(transaction.laminateId);
-    
-    // If laminate was changed, also update the new laminate
-    if (updates.laminateId && updates.laminateId !== transaction.laminateId) {
-      laminatesToUpdate.add(updates.laminateId);
-    }
-    
-    // Update stock levels for all affected laminates
-    let allSuccessful = true;
-    for (const laminateId of laminatesToUpdate) {
-      const success = await updateLaminateStock(laminateId);
-      if (!success) allSuccessful = false;
-    }
-    
-    if (allSuccessful) {
-      toast.success("Transaction updated and inventory adjusted");
-    } else {
-      toast.warning("Transaction updated but there was an issue updating inventory");
-    }
-    
-    // Refresh data
-    fetchTransactions();
-    fetchLaminates();
   };
 
   const deleteTransaction = async (id: string) => {
-    // First, get the transaction to know which laminate to update after deletion
-    const transaction = transactions.find(t => t.id === id);
-    if (!transaction) {
-      toast.error("Transaction not found");
-      return;
+    try {
+      // First, get the transaction to know which laminate to update after deletion
+      const transaction = transactions.find(t => t.id === id);
+      if (!transaction) {
+        toast.error("Transaction not found");
+        return;
+      }
+      
+      const laminateId = transaction.laminateId;
+      
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id);
+    
+      if (error) {
+        toast.error("Error deleting transaction");
+        return;
+      }
+      
+      // Update the stock for the affected laminate
+      const successful = await updateLaminateStock(laminateId);
+      
+      if (successful) {
+        toast.success("Transaction deleted and inventory updated");
+      } else {
+        toast.warning("Transaction deleted but there was an issue updating inventory");
+      }
+      
+      // Refresh data
+      await fetchTransactions();
+      await fetchLaminates();
+    } catch (error) {
+      console.error("Error in deleteTransaction:", error);
+      toast.error("Failed to delete transaction");
     }
-    
-    const laminateId = transaction.laminateId;
-    
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', id);
-  
-    if (error) {
-      toast.error("Error deleting transaction");
-      return;
-    }
-    
-    // Update the stock for the affected laminate
-    const successful = await updateLaminateStock(laminateId);
-    
-    if (successful) {
-      toast.success("Transaction deleted and inventory updated");
-    } else {
-      toast.warning("Transaction deleted but there was an issue updating inventory");
-    }
-    
-    // Refresh data
-    fetchTransactions();
-    fetchLaminates();
   };
 
   const getLowStockLaminates = () => {
@@ -390,6 +427,40 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const getLaminateById = (id: string) => {
     return laminates.find(laminate => laminate.id === id);
   };
+  
+  // New helper function to get laminates grouped by company name
+  const getLaminatesByCompany = () => {
+    const companies = new Map<string, number>();
+    
+    laminates.forEach(laminate => {
+      const currentCount = companies.get(laminate.brandName) || 0;
+      companies.set(laminate.brandName, currentCount + 1);
+    });
+    
+    return Array.from(companies.entries())
+      .map(([company, count]) => ({ company, count }))
+      .sort((a, b) => b.count - a.count);
+  };
+  
+  // New helper function to get transaction quantities grouped by company name
+  const getTransactionsByCompany = (type: "purchase" | "sale") => {
+    const companies = new Map<string, number>();
+    
+    transactions
+      .filter(t => t.type === type)
+      .forEach(transaction => {
+        const laminate = getLaminateById(transaction.laminateId);
+        if (laminate) {
+          const company = laminate.brandName;
+          const currentUnits = companies.get(company) || 0;
+          companies.set(company, currentUnits + transaction.quantity);
+        }
+      });
+    
+    return Array.from(companies.entries())
+      .map(([company, units]) => ({ company, units }))
+      .sort((a, b) => b.units - a.units);
+  };
 
   const value = {
     laminates,
@@ -403,7 +474,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deleteTransaction,
     getLowStockLaminates,
     getTopSellingLaminates,
-    getLaminateById
+    getLaminateById,
+    getLaminatesByCompany,
+    getTransactionsByCompany
   };
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
