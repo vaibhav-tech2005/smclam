@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -23,6 +22,12 @@ const Dashboard = () => {
   
   // Calculate statistics
   const totalLaminates = laminates.length;
+  
+  // Calculate total stock quantity
+  const totalStockQuantity = laminates.reduce(
+    (total, laminate) => total + laminate.currentStock,
+    0
+  );
   
   const purchases = transactions.filter(t => t.type === "purchase");
   const sales = transactions.filter(t => t.type === "sale");
@@ -50,7 +55,7 @@ const Dashboard = () => {
   );
   
   const stockData = [
-    { name: "In Stock", value: totalLaminates },
+    { name: "In Stock", value: totalStockQuantity },
     { name: "Sold", value: unitsSoldThisMonth },
   ];
   
@@ -69,19 +74,19 @@ const Dashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Laminates
+              Total Stock Quantity
             </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalLaminates}</div>
+            <div className="text-2xl font-bold">{totalStockQuantity}</div>
             <div className="mt-2 text-xs text-muted-foreground">
               <div className="font-medium mb-1">By company:</div>
               <div className="max-h-16 overflow-y-auto">
                 {laminatesByCompany.map((item, idx) => (
                   <div key={idx} className="flex justify-between">
                     <span>{item.company}:</span>
-                    <span>{item.count}</span>
+                    <span>{item.stockQuantity}</span>
                   </div>
                 ))}
               </div>

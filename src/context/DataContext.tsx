@@ -35,7 +35,7 @@ interface DataContextType {
   getLowStockLaminates: () => Laminate[];
   getTopSellingLaminates: (limit?: number) => { laminate: Laminate; totalSold: number }[];
   getLaminateById: (id: string) => Laminate | undefined;
-  getLaminatesByCompany: () => { company: string; count: number }[];
+  getLaminatesByCompany: () => { company: string; count: number; stockQuantity: number }[];
   getTransactionsByCompany: (type: "purchase" | "sale") => { company: string; units: number }[];
 }
 
