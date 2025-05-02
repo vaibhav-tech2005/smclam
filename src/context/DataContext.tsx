@@ -97,35 +97,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchTransactions();
   }, []);
 
-  // Update stock levels
-  useEffect(() => {
-    const updateStockLevels = async () => {
-      // For each laminate, update its quantity in the database based on transactions
-      for (const laminate of laminates) {
-        // Calculate stock based on transactions
-        let stock = 0;
-        transactions.forEach(transaction => {
-          if (transaction.laminateId === laminate.id) {
-            stock += transaction.type === 'purchase' ? transaction.quantity : -transaction.quantity;
-          }
-        });
+  // Update a single laminate's stock level
+  const updateLaminateStock = async (laminateId: string) => {
+    // Get all transactions for this laminate
+    const relevantTransactions = transactions.filter(t => t.laminateId === laminateId);
+    
+    // Calculate current stock based on transactions
+    let stock = 0;
+    relevantTransactions.forEach(transaction => {
+      stock += transaction.type === 'purchase' ? transaction.quantity : -transaction.quantity;
+    });
+    
+    // Update the laminate in the database
+    const { error } = await supabase
+      .from('inventory_items')
+      .update({ quantity: stock })
+      .eq('id', laminateId);
 
-        // Update the laminate in the database
-        const { error } = await supabase
-          .from('inventory_items')
-          .update({ quantity: stock })
-          .eq('id', laminate.id);
-
-        if (error) {
-          toast.error(`Error updating stock for ${laminate.brandName} ${laminate.laminateNumber}`);
-        }
-      }
-    };
-
-    if (laminates.length > 0 && transactions.length > 0) {
-      updateStockLevels();
+    if (error) {
+      const laminate = laminates.find(l => l.id === laminateId);
+      toast.error(`Error updating stock for ${laminate?.brandName} ${laminate?.laminateNumber}`);
+      return false;
     }
-  }, [transactions, laminates]);
+    
+    return true;
+  };
 
   const addLaminate = async (laminate: Omit<Laminate, "id" | "currentStock">) => {
     const { data, error } = await supabase
@@ -227,6 +223,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addTransaction = async (transaction: Omit<Transaction, "id">) => {
+    // First add the transaction
     const { error } = await supabase
       .from('transactions')
       .insert({
@@ -242,12 +239,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.error("Error adding transaction");
       return;
     }
+
+    // Then immediately update the stock for this laminate
+    const successful = await updateLaminateStock(transaction.laminateId);
   
-    toast.success(`${transaction.type === "purchase" ? "Purchase" : "Sale"} recorded`);
-    fetchTransactions(); // Refresh transactions list
+    if (successful) {
+      toast.success(`${transaction.type === "purchase" ? "Purchase" : "Sale"} recorded and inventory updated`);
+      
+      // Refresh both transactions and laminates to show updated data
+      fetchTransactions();
+      fetchLaminates();
+    } else {
+      // We already showed an error in updateLaminateStock if it failed
+      fetchTransactions(); // Still refresh transactions even if stock update failed
+    }
   };
 
   const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => {
+    // First, get the current transaction to know which laminate to update
+    const transaction = transactions.find(t => t.id === id);
+    if (!transaction) {
+      toast.error("Transaction not found");
+      return;
+    }
+    
     const updateData: any = {};
     
     if (updates.laminateId !== undefined) updateData.inventory_item_id = updates.laminateId;
@@ -266,11 +281,45 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
   
-    toast.success("Transaction updated");
-    fetchTransactions(); // Refresh transactions list
+    // List of laminates that need stock updates
+    const laminatesToUpdate = new Set<string>();
+    
+    // Always update the current laminate
+    laminatesToUpdate.add(transaction.laminateId);
+    
+    // If laminate was changed, also update the new laminate
+    if (updates.laminateId && updates.laminateId !== transaction.laminateId) {
+      laminatesToUpdate.add(updates.laminateId);
+    }
+    
+    // Update stock levels for all affected laminates
+    let allSuccessful = true;
+    for (const laminateId of laminatesToUpdate) {
+      const success = await updateLaminateStock(laminateId);
+      if (!success) allSuccessful = false;
+    }
+    
+    if (allSuccessful) {
+      toast.success("Transaction updated and inventory adjusted");
+    } else {
+      toast.warning("Transaction updated but there was an issue updating inventory");
+    }
+    
+    // Refresh data
+    fetchTransactions();
+    fetchLaminates();
   };
 
   const deleteTransaction = async (id: string) => {
+    // First, get the transaction to know which laminate to update after deletion
+    const transaction = transactions.find(t => t.id === id);
+    if (!transaction) {
+      toast.error("Transaction not found");
+      return;
+    }
+    
+    const laminateId = transaction.laminateId;
+    
     const { error } = await supabase
       .from('transactions')
       .delete()
@@ -280,9 +329,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.error("Error deleting transaction");
       return;
     }
-  
-    toast.success("Transaction deleted");
-    fetchTransactions(); // Refresh transactions list
+    
+    // Update the stock for the affected laminate
+    const successful = await updateLaminateStock(laminateId);
+    
+    if (successful) {
+      toast.success("Transaction deleted and inventory updated");
+    } else {
+      toast.warning("Transaction deleted but there was an issue updating inventory");
+    }
+    
+    // Refresh data
+    fetchTransactions();
+    fetchLaminates();
   };
 
   const getLowStockLaminates = () => {
