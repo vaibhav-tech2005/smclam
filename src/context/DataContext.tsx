@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,7 +46,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch laminates from Supabase
   const fetchLaminates = async () => {
     const { data, error } = await supabase
-      .from('laminates')
+      .from('inventory_items')
       .select('*');
     
     if (error) {
@@ -53,7 +54,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    setLaminates(data || []);
+    // Map database fields to app model fields
+    const mappedLaminates: Laminate[] = data.map(item => ({
+      id: item.id,
+      brandName: item.company,
+      laminateNumber: item.laminate_number,
+      laminateFinish: item.laminate_finish,
+      currentStock: item.quantity || 0
+    }));
+    
+    setLaminates(mappedLaminates);
   };
 
   // Fetch transactions from Supabase
@@ -67,28 +77,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    setTransactions(data || []);
-  };
-
-  // Update stock levels
-  const updateStockLevels = () => {
-    const updatedLaminates = laminates.map(laminate => ({
-      ...laminate,
-      currentStock: 0
+    // Map database fields to app model fields
+    const mappedTransactions: Transaction[] = data.map(item => ({
+      id: item.id,
+      type: item.type as "purchase" | "sale",
+      laminateId: item.inventory_item_id,
+      date: item.date,
+      quantity: item.quantity,
+      customerName: item.customer_name || undefined,
+      remarks: item.notes || undefined
     }));
-
-    const laminateMap = new Map(updatedLaminates.map(l => [l.id, l]));
-
-    transactions.forEach(transaction => {
-      const laminate = laminateMap.get(transaction.laminateId);
-      if (laminate) {
-        laminate.currentStock += transaction.type === 'purchase' 
-          ? transaction.quantity 
-          : -transaction.quantity;
-      }
-    });
-
-    setLaminates(Array.from(laminateMap.values()));
+    
+    setTransactions(mappedTransactions);
   };
 
   // Initial data fetch on component mount
@@ -97,18 +97,44 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchTransactions();
   }, []);
 
-  // Recalculate stock when transactions change
+  // Update stock levels
   useEffect(() => {
-    updateStockLevels();
-  }, [transactions]);
+    const updateStockLevels = async () => {
+      // For each laminate, update its quantity in the database based on transactions
+      for (const laminate of laminates) {
+        // Calculate stock based on transactions
+        let stock = 0;
+        transactions.forEach(transaction => {
+          if (transaction.laminateId === laminate.id) {
+            stock += transaction.type === 'purchase' ? transaction.quantity : -transaction.quantity;
+          }
+        });
+
+        // Update the laminate in the database
+        const { error } = await supabase
+          .from('inventory_items')
+          .update({ quantity: stock })
+          .eq('id', laminate.id);
+
+        if (error) {
+          toast.error(`Error updating stock for ${laminate.brandName} ${laminate.laminateNumber}`);
+        }
+      }
+    };
+
+    if (laminates.length > 0 && transactions.length > 0) {
+      updateStockLevels();
+    }
+  }, [transactions, laminates]);
 
   const addLaminate = async (laminate: Omit<Laminate, "id" | "currentStock">) => {
     const { data, error } = await supabase
-      .from('laminates')
+      .from('inventory_items')
       .insert({
-        brand_name: laminate.brandName,
+        company: laminate.brandName,
         laminate_number: laminate.laminateNumber,
-        laminate_finish: laminate.laminateFinish
+        laminate_finish: laminate.laminateFinish,
+        quantity: 0
       })
       .select();
 
@@ -119,17 +145,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (data) {
       toast.success(`${laminate.brandName} ${laminate.laminateNumber} added`);
+      fetchLaminates(); // Refresh laminates list
     }
   };
 
   const updateLaminate = async (id: string, updates: Partial<Omit<Laminate, "id" | "currentStock">>) => {
+    const updateData: any = {};
+    
+    if (updates.brandName !== undefined) updateData.company = updates.brandName;
+    if (updates.laminateNumber !== undefined) updateData.laminate_number = updates.laminateNumber;
+    if (updates.laminateFinish !== undefined) updateData.laminate_finish = updates.laminateFinish;
+    
     const { error } = await supabase
-      .from('laminates')
-      .update({
-        brand_name: updates.brandName,
-        laminate_number: updates.laminateNumber,
-        laminate_finish: updates.laminateFinish
-      })
+      .from('inventory_items')
+      .update(updateData)
       .eq('id', id);
   
     if (error) {
@@ -138,11 +167,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   
     toast.success("Laminate updated");
+    fetchLaminates(); // Refresh laminates list
   };
 
   const deleteLaminate = async (id: string) => {
+    // First, delete related transactions
+    const { error: transactionError } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('inventory_item_id', id);
+    
+    if (transactionError) {
+      toast.error("Error deleting related transactions");
+      return;
+    }
+  
+    // Then delete the laminate
     const { error } = await supabase
-      .from('laminates')
+      .from('inventory_items')
       .delete()
       .eq('id', id);
   
@@ -152,6 +194,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   
     toast.success("Laminate deleted");
+    fetchLaminates(); // Refresh laminates list
+    fetchTransactions(); // Refresh transactions list
   };
 
   const clearAllLaminates = async () => {
@@ -168,7 +212,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
     // Then, delete all laminates
     const { error: laminatesError } = await supabase
-      .from('laminates')
+      .from('inventory_items')
       .delete()
       .neq('id', null); // Delete all laminates
   
@@ -178,6 +222,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   
     toast.success("All laminates and associated transactions have been deleted");
+    fetchLaminates(); // Refresh laminates list
+    fetchTransactions(); // Refresh transactions list
   };
 
   const addTransaction = async (transaction: Omit<Transaction, "id">) => {
@@ -185,11 +231,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .from('transactions')
       .insert({
         type: transaction.type,
-        laminate_id: transaction.laminateId,
+        inventory_item_id: transaction.laminateId,
         date: transaction.date,
         quantity: transaction.quantity,
         customer_name: transaction.customerName,
-        remarks: transaction.remarks
+        notes: transaction.remarks
       });
   
     if (error) {
@@ -198,18 +244,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   
     toast.success(`${transaction.type === "purchase" ? "Purchase" : "Sale"} recorded`);
+    fetchTransactions(); // Refresh transactions list
   };
 
   const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => {
+    const updateData: any = {};
+    
+    if (updates.laminateId !== undefined) updateData.inventory_item_id = updates.laminateId;
+    if (updates.date !== undefined) updateData.date = updates.date;
+    if (updates.quantity !== undefined) updateData.quantity = updates.quantity;
+    if (updates.customerName !== undefined) updateData.customer_name = updates.customerName;
+    if (updates.remarks !== undefined) updateData.notes = updates.remarks;
+    
     const { error } = await supabase
       .from('transactions')
-      .update({
-        laminate_id: updates.laminateId,
-        date: updates.date,
-        quantity: updates.quantity,
-        customer_name: updates.customerName,
-        remarks: updates.remarks
-      })
+      .update(updateData)
       .eq('id', id);
   
     if (error) {
@@ -218,6 +267,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   
     toast.success("Transaction updated");
+    fetchTransactions(); // Refresh transactions list
   };
 
   const deleteTransaction = async (id: string) => {
@@ -232,6 +282,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   
     toast.success("Transaction deleted");
+    fetchTransactions(); // Refresh transactions list
   };
 
   const getLowStockLaminates = () => {
