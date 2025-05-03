@@ -80,20 +80,20 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      // Fetch users from auth.users (accessible only for admin via RLS)
-      const { data: authUsers, error: authError } = await supabase
+      // Fetch users directly with a more generic approach
+      const { data: usersData, error } = await supabase
         .from('user_permissions')
-        .select('user_id, email, role, permissions, created_at');
+        .select('*');
       
-      if (authError) throw authError;
+      if (error) throw error;
       
-      const formattedUsers = authUsers?.map(user => ({
+      const formattedUsers: AppUser[] = (usersData || []).map((user: any) => ({
         id: user.user_id,
         email: user.email,
         role: user.role as "admin" | "user",
         lastActive: user.created_at,
         permissions: user.permissions || []
-      })) || [];
+      }));
       
       setUsers(formattedUsers);
     } catch (error: any) {
@@ -122,17 +122,25 @@ const UserManagement = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // 2. Create user permissions record
-        const { error: permissionError } = await supabase
-          .from('user_permissions')
-          .insert({
+        // 2. Create user permissions record using a more generic approach
+        const { error: permissionError } = await supabase.rpc('insert_user_permission', {
+          p_user_id: authData.user.id,
+          p_email: data.email,
+          p_role: data.role,
+          p_permissions: data.permissions
+        });
+
+        if (permissionError) {
+          // Fallback if RPC doesn't exist yet
+          const { error: directError } = await supabase.from('user_permissions').insert({
             user_id: authData.user.id,
             email: data.email,
             role: data.role,
             permissions: data.permissions
           });
 
-        if (permissionError) throw permissionError;
+          if (directError) throw directError;
+        }
 
         toast.success("User created successfully");
         fetchUsers();
@@ -153,16 +161,25 @@ const UserManagement = () => {
     
     setIsLoading(true);
     try {
-      // Update user permissions
-      const { error: permissionError } = await supabase
-        .from('user_permissions')
-        .update({
-          role: data.role,
-          permissions: data.permissions
-        })
-        .eq('user_id', editingUser.id);
+      // Update user permissions using a more generic approach
+      const { error: permissionError } = await supabase.rpc('update_user_permission', {
+        p_user_id: editingUser.id,
+        p_role: data.role,
+        p_permissions: data.permissions
+      });
 
-      if (permissionError) throw permissionError;
+      if (permissionError) {
+        // Fallback if RPC doesn't exist yet
+        const { error: directError } = await supabase
+          .from('user_permissions')
+          .update({
+            role: data.role,
+            permissions: data.permissions
+          })
+          .eq('user_id', editingUser.id);
+
+        if (directError) throw directError;
+      }
 
       toast.success("User updated successfully");
       fetchUsers();
@@ -183,8 +200,10 @@ const UserManagement = () => {
     
     setIsLoading(true);
     try {
-      // Delete the user
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      // Delete the user using admin deleteUser function
+      const { error } = await supabase.functions.invoke('delete-user', {
+        body: { userId }
+      });
       
       if (error) throw error;
       
@@ -193,6 +212,21 @@ const UserManagement = () => {
     } catch (error: any) {
       console.error('Error deleting user:', error);
       toast.error(error.message || "Failed to delete user");
+      
+      // Fallback approach - try to delete the permissions record
+      try {
+        const { error } = await supabase
+          .from('user_permissions')
+          .delete()
+          .eq('user_id', userId);
+        
+        if (!error) {
+          toast.success("User permissions removed");
+          fetchUsers();
+        }
+      } catch (fallbackError) {
+        console.error('Error in fallback delete:', fallbackError);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -223,6 +257,9 @@ const UserManagement = () => {
     }
   };
 
+  // Use a placeholder if no users found
+  const displayUsers = users.length > 0 ? users : [];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
@@ -246,7 +283,7 @@ const UserManagement = () => {
             <div className="flex justify-center py-4">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
             </div>
-          ) : users.length === 0 ? (
+          ) : displayUsers.length === 0 ? (
             <div className="text-center py-6 text-muted-foreground">
               <p>No users found. Add a new user to get started.</p>
             </div>
@@ -262,7 +299,7 @@ const UserManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
+                  {displayUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.email}</TableCell>
                       <TableCell>

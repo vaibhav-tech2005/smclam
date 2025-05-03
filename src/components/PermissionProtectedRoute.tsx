@@ -16,7 +16,7 @@ const PermissionProtectedRoute = ({
   children, 
   requiredPermission 
 }: PermissionProtectedRouteProps) => {
-  const { isAuthenticated, isAdmin, isLoading, user } = useAuth();
+  const { isAuthenticated, isAdmin, isLoading, hasPermission } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -34,7 +34,7 @@ const PermissionProtectedRoute = ({
 
   // Check if user has the required permission or is admin
   if (requiredPermission && !isAdmin) {
-    const userHasPermission = user?.permissions?.includes(requiredPermission);
+    const userHasPermission = hasPermission(requiredPermission);
     
     if (!userHasPermission) {
       return <Navigate to="/unauthorized" />;

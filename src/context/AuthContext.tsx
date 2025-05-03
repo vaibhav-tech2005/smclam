@@ -34,9 +34,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Helper function to fetch user permissions
   const fetchUserPermissions = async (userId: string) => {
     try {
+      // Using generic fetch to avoid type issues
       const { data, error } = await supabase
         .from('user_permissions')
-        .select('role, permissions')
+        .select('*')
         .eq('user_id', userId)
         .single();
       
