@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DataProvider } from "./context/DataContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import AppLayout from "./components/AppLayout";
 import { useEffect } from "react";
 
@@ -60,51 +61,51 @@ const App = () => (
               <Route path="/unauthorized" element={<Unauthorized />} />
               
               <Route path="/dashboard" element={
-                <ProtectedRoute>
+                <PermissionProtectedRoute requiredPermission="dashboard">
                   <AppLayout>
                     <Dashboard />
                   </AppLayout>
-                </ProtectedRoute>
+                </PermissionProtectedRoute>
               } />
               
               <Route path="/inventory" element={
-                <ProtectedRoute>
+                <PermissionProtectedRoute requiredPermission="inventory">
                   <AppLayout>
                     <Inventory />
                   </AppLayout>
-                </ProtectedRoute>
+                </PermissionProtectedRoute>
               } />
               
               <Route path="/transactions" element={
-                <ProtectedRoute>
+                <PermissionProtectedRoute requiredPermission="transactions">
                   <AppLayout>
                     <Transactions />
                   </AppLayout>
-                </ProtectedRoute>
+                </PermissionProtectedRoute>
               } />
               
               <Route path="/reports" element={
-                <ProtectedRoute>
+                <PermissionProtectedRoute requiredPermission="reports">
                   <AppLayout>
                     <Reports />
                   </AppLayout>
-                </ProtectedRoute>
+                </PermissionProtectedRoute>
               } />
               
               <Route path="/users" element={
-                <ProtectedRoute>
+                <PermissionProtectedRoute requiredPermission="users">
                   <AppLayout>
                     <Users />
                   </AppLayout>
-                </ProtectedRoute>
+                </PermissionProtectedRoute>
               } />
               
               <Route path="/settings" element={
-                <ProtectedRoute>
+                <PermissionProtectedRoute requiredPermission="settings">
                   <AppLayout>
                     <Settings />
                   </AppLayout>
-                </ProtectedRoute>
+                </PermissionProtectedRoute>
               } />
               
               <Route path="*" element={<NotFound />} />

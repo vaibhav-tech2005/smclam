@@ -10,6 +10,7 @@ interface AuthUser {
   id: string;
   username: string;
   role: Role;
+  permissions?: string[];
 }
 
 interface AuthContextType {
@@ -19,6 +20,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,6 +30,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+
+  // Helper function to fetch user permissions
+  const fetchUserPermissions = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_permissions')
+        .select('role, permissions')
+        .eq('user_id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user permissions:', error);
+        return { role: 'user' as Role, permissions: [] };
+      }
+      
+      return { 
+        role: (data?.role || 'user') as Role, 
+        permissions: data?.permissions || [] 
+      };
+    } catch (error) {
+      console.error('Error in fetchUserPermissions:', error);
+      return { role: 'user' as Role, permissions: [] };
+    }
+  };
+
+  const updateUserWithPermissions = async (supaUser: User) => {
+    try {
+      const { role, permissions } = await fetchUserPermissions(supaUser.id);
+      
+      setUser({
+        id: supaUser.id,
+        username: supaUser.email || "user",
+        role,
+        permissions
+      });
+    } catch (error) {
+      console.error('Error updating user with permissions:', error);
+      
+      // Fallback to basic user info without permissions
+      setUser({
+        id: supaUser.id,
+        username: supaUser.email || "user",
+        role: supaUser.email?.includes("admin") ? "admin" : "user"
+      });
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener first
@@ -39,13 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentSession?.user) {
           const supaUser = currentSession.user;
           setSupabaseUser(supaUser);
-          
-          // Convert Supabase user to our app's user format
-          setUser({
-            id: supaUser.id,
-            username: supaUser.email || "user",
-            role: supaUser.email?.includes("admin") ? "admin" : "user",
-          });
+          updateUserWithPermissions(supaUser);
         } else {
           setSupabaseUser(null);
           setUser(null);
@@ -60,13 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (initialSession?.user) {
           const supaUser = initialSession.user;
           setSupabaseUser(supaUser);
-          
-          // Convert Supabase user to our app's user format
-          setUser({
-            id: supaUser.id,
-            username: supaUser.email || "user",
-            role: supaUser.email?.includes("admin") ? "admin" : "user",
-          });
+          updateUserWithPermissions(supaUser);
         }
       } catch (error) {
         console.error("Error checking authentication:", error);
@@ -126,6 +162,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Helper function to check if user has a specific permission
+  const hasPermission = (permission: string) => {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+    return user.permissions?.includes(permission) || false;
+  };
+
   const value = {
     user,
     isLoading,
@@ -133,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     isAuthenticated: !!user,
     isAdmin: user?.role === "admin",
+    hasPermission
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

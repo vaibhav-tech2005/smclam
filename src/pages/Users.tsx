@@ -1,4 +1,5 @@
-import React from "react";
+
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,19 +19,209 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { UserCog, Lock, Edit, Trash2 } from "lucide-react";
+import { UserCog, Edit, Trash2, Check, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useForm } from "react-hook-form";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import * as z from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+// Define available permissions
+const dashboardPermissions = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "inventory", label: "Inventory" },
+  { id: "transactions", label: "Transactions" },
+  { id: "reports", label: "Reports" },
+  { id: "users", label: "User Management" },
+  { id: "settings", label: "Settings" }
+];
+
+// Define form schemas
+const userFormSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  role: z.string(),
+  permissions: z.array(z.string()).default([])
+});
+
+type UserFormValues = z.infer<typeof userFormSchema>;
+
+// User interface
+interface AppUser {
+  id: string;
+  email: string;
+  role: "admin" | "user";
+  lastActive?: string;
+  permissions: string[];
+}
 
 const UserManagement = () => {
   const { isAdmin } = useAuth();
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
-  // Mock users for demonstration
-  const mockUsers = [
-    { id: "1", username: "admin", role: "admin", lastActive: "2025-04-12" },
-    { id: "2", username: "user", role: "user", lastActive: "2025-04-12" },
-    { id: "3", username: "sarah", role: "user", lastActive: "2025-04-11" },
-    { id: "4", username: "michael", role: "user", lastActive: "2025-04-10" },
-  ];
+  const form = useForm<UserFormValues>({
+    resolver: zodResolver(userFormSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      role: "user",
+      permissions: []
+    }
+  });
+
+  // Fetch users
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch users from auth.users (accessible only for admin via RLS)
+      const { data: authUsers, error: authError } = await supabase
+        .from('user_permissions')
+        .select('user_id, email, role, permissions, created_at');
+      
+      if (authError) throw authError;
+      
+      const formattedUsers = authUsers?.map(user => ({
+        id: user.user_id,
+        email: user.email,
+        role: user.role as "admin" | "user",
+        lastActive: user.created_at,
+        permissions: user.permissions || []
+      })) || [];
+      
+      setUsers(formattedUsers);
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      toast.error("Failed to load users");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Handle adding a new user
+  const handleAddUser = async (data: UserFormValues) => {
+    setIsLoading(true);
+    try {
+      // 1. Create the user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: data.email,
+        password: data.password,
+        email_confirm: true
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // 2. Create user permissions record
+        const { error: permissionError } = await supabase
+          .from('user_permissions')
+          .insert({
+            user_id: authData.user.id,
+            email: data.email,
+            role: data.role,
+            permissions: data.permissions
+          });
+
+        if (permissionError) throw permissionError;
+
+        toast.success("User created successfully");
+        fetchUsers();
+        setIsDialogOpen(false);
+        form.reset();
+      }
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast.error(error.message || "Failed to create user");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle updating a user
+  const handleUpdateUser = async (data: UserFormValues) => {
+    if (!editingUser) return;
+    
+    setIsLoading(true);
+    try {
+      // Update user permissions
+      const { error: permissionError } = await supabase
+        .from('user_permissions')
+        .update({
+          role: data.role,
+          permissions: data.permissions
+        })
+        .eq('user_id', editingUser.id);
+
+      if (permissionError) throw permissionError;
+
+      toast.success("User updated successfully");
+      fetchUsers();
+      setIsDialogOpen(false);
+      setEditingUser(null);
+      form.reset();
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      toast.error(error.message || "Failed to update user");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle deleting a user
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this user?")) return;
+    
+    setIsLoading(true);
+    try {
+      // Delete the user
+      const { error } = await supabase.auth.admin.deleteUser(userId);
+      
+      if (error) throw error;
+      
+      toast.success("User deleted successfully");
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(error.message || "Failed to delete user");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Open dialog for editing
+  const openEditDialog = (user: AppUser) => {
+    setEditingUser(user);
+    form.setValue("email", user.email);
+    form.setValue("role", user.role);
+    form.setValue("permissions", user.permissions || []);
+    setIsDialogOpen(true);
+  };
+
+  // Open dialog for adding
+  const openAddDialog = () => {
+    setEditingUser(null);
+    form.reset();
+    setIsDialogOpen(true);
+  };
+
+  // Handle form submission
+  const onSubmit = (data: UserFormValues) => {
+    if (editingUser) {
+      handleUpdateUser(data);
+    } else {
+      handleAddUser(data);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -41,31 +232,39 @@ const UserManagement = () => {
             Manage user accounts and permissions
           </p>
         </div>
-        <Button>
+        <Button onClick={openAddDialog}>
           <UserCog className="mr-1 h-4 w-4" /> Add New User
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">User List</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">User List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          ) : users.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <p>No users found. Add a new user to get started.</p>
+            </div>
+          ) : (
             <div className="rounded-md border overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Username</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Last Active</TableHead>
+                    <TableHead>Permissions</TableHead>
                     <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockUsers.map((user) => (
+                  {users.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.username}</TableCell>
+                      <TableCell className="font-medium">{user.email}</TableCell>
                       <TableCell>
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -78,15 +277,37 @@ const UserManagement = () => {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {new Date(user.lastActive).toLocaleDateString()}
+                        <div className="flex flex-wrap gap-1">
+                          {user.permissions?.map((permission) => (
+                            <span 
+                              key={permission}
+                              className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800"
+                            >
+                              {dashboardPermissions.find(p => p.id === permission)?.label || permission}
+                            </span>
+                          ))}
+                          {(!user.permissions || user.permissions.length === 0) && (
+                            <span className="text-xs text-gray-500">No permissions</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => openEditDialog(user)}
+                          >
                             <Edit className="h-4 w-4" />
                             <span className="sr-only">Edit</span>
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Delete</span>
                           </Button>
@@ -97,46 +318,9 @@ const UserManagement = () => {
                 </TableBody>
               </Table>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Add/Edit User</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input id="username" placeholder="Enter username" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" placeholder="Enter password" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select defaultValue="user">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="user">User</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="pt-4 flex space-x-2 justify-end">
-                <Button variant="outline">Cancel</Button>
-                <Button>Save User</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -149,58 +333,175 @@ const UserManagement = () => {
                 <TableRow>
                   <TableHead>Feature</TableHead>
                   <TableHead>Admin</TableHead>
-                  <TableHead>User</TableHead>
+                  <TableHead>User (with permission)</TableHead>
+                  <TableHead>User (without permission)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">View Dashboard</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">View Inventory</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Add/Edit Inventory</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                  <TableCell className="text-red-600">✗</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">View Transactions</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Add/Edit Transactions</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                  <TableCell className="text-red-600">✗</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Generate Reports</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">User Management</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                  <TableCell className="text-red-600">✗</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Settings</TableCell>
-                  <TableCell className="text-green-600">✓</TableCell>
-                  <TableCell className="text-red-600">✗</TableCell>
-                </TableRow>
+                {dashboardPermissions.map((permission) => (
+                  <TableRow key={permission.id}>
+                    <TableCell className="font-medium">{permission.label}</TableCell>
+                    <TableCell className="text-green-600"><Check className="h-4 w-4" /></TableCell>
+                    <TableCell className="text-green-600"><Check className="h-4 w-4" /></TableCell>
+                    <TableCell className="text-red-600"><X className="h-4 w-4" /></TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
           <p className="text-sm text-muted-foreground mt-4">
-            Note: This is a simplified view of permissions. For this demo version, permissions are fixed based on user role.
+            Note: Admin users have access to all features regardless of specific permissions.
           </p>
         </CardContent>
       </Card>
+
+      {/* User Form Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="user@example.com" 
+                        {...field} 
+                        disabled={!!editingUser || isLoading} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {!editingUser && (
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="Enter password" 
+                          {...field} 
+                          disabled={isLoading} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <Select 
+                      value={field.value} 
+                      onValueChange={field.onChange}
+                      disabled={isLoading}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="user">User</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="permissions"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel>Dashboard Permissions</FormLabel>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {dashboardPermissions.map((permission) => (
+                        <FormField
+                          key={permission.id}
+                          control={form.control}
+                          name="permissions"
+                          render={({ field }) => {
+                            return (
+                              <FormItem
+                                key={permission.id}
+                                className="flex flex-row items-start space-x-3 space-y-0"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(permission.id)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...field.value, permission.id])
+                                        : field.onChange(
+                                            field.value?.filter(
+                                              (value) => value !== permission.id
+                                            )
+                                          )
+                                    }}
+                                    disabled={isLoading}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm font-normal">
+                                  {permission.label}
+                                </FormLabel>
+                              </FormItem>
+                            )
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  type="button" 
+                  onClick={() => setIsDialogOpen(false)}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-current rounded-full" />
+                      {editingUser ? "Updating..." : "Creating..."}
+                    </>
+                  ) : (
+                    <>{editingUser ? "Update User" : "Create User"}</>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
