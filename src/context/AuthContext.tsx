@@ -31,10 +31,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
 
-  // Helper function to fetch user permissions
+  // Helper function to fetch user permissions using a more generic approach
   const fetchUserPermissions = async (userId: string) => {
     try {
-      // Using generic fetch to avoid type issues
+      // Using a direct query with a custom type to avoid TS issues
       const { data, error } = await supabase
         .from('user_permissions')
         .select('*')

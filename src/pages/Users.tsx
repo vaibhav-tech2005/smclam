@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,6 +49,16 @@ const userFormSchema = z.object({
 
 type UserFormValues = z.infer<typeof userFormSchema>;
 
+// User permissions interface
+interface UserPermission {
+  id: string;
+  user_id: string;
+  email: string;
+  role: "admin" | "user";
+  permissions: string[];
+  created_at?: string;
+}
+
 // User interface
 interface AppUser {
   id: string;
@@ -80,14 +89,13 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      // Fetch users directly with a more generic approach
-      const { data: usersData, error } = await supabase
+      const { data, error } = await supabase
         .from('user_permissions')
-        .select('*');
+        .select('*') as { data: UserPermission[] | null, error: any };
       
       if (error) throw error;
       
-      const formattedUsers: AppUser[] = (usersData || []).map((user: any) => ({
+      const formattedUsers: AppUser[] = (data || []).map((user: UserPermission) => ({
         id: user.user_id,
         email: user.email,
         role: user.role as "admin" | "user",
@@ -113,40 +121,23 @@ const UserManagement = () => {
     setIsLoading(true);
     try {
       // 1. Create the user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: data.email,
-        password: data.password,
-        email_confirm: true
+      const authResponse = await supabase.functions.invoke('insert-user-permission', {
+        body: {
+          email: data.email,
+          password: data.password,
+          role: data.role,
+          permissions: data.permissions
+        }
       });
 
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // 2. Create user permissions record using a more generic approach
-        const { error: permissionError } = await supabase.rpc('insert_user_permission', {
-          p_user_id: authData.user.id,
-          p_email: data.email,
-          p_role: data.role,
-          p_permissions: data.permissions
-        });
-
-        if (permissionError) {
-          // Fallback if RPC doesn't exist yet
-          const { error: directError } = await supabase.from('user_permissions').insert({
-            user_id: authData.user.id,
-            email: data.email,
-            role: data.role,
-            permissions: data.permissions
-          });
-
-          if (directError) throw directError;
-        }
-
-        toast.success("User created successfully");
-        fetchUsers();
-        setIsDialogOpen(false);
-        form.reset();
+      if (authResponse.error) {
+        throw new Error(authResponse.error.message || "Failed to create user");
       }
+
+      toast.success("User created successfully");
+      fetchUsers();
+      setIsDialogOpen(false);
+      form.reset();
     } catch (error: any) {
       console.error('Error creating user:', error);
       toast.error(error.message || "Failed to create user");
@@ -161,24 +152,17 @@ const UserManagement = () => {
     
     setIsLoading(true);
     try {
-      // Update user permissions using a more generic approach
-      const { error: permissionError } = await supabase.rpc('update_user_permission', {
-        p_user_id: editingUser.id,
-        p_role: data.role,
-        p_permissions: data.permissions
+      // Update user permissions using edge function
+      const response = await supabase.functions.invoke('update-user-permission', {
+        body: { 
+          userId: editingUser.id,
+          role: data.role,
+          permissions: data.permissions
+        }
       });
 
-      if (permissionError) {
-        // Fallback if RPC doesn't exist yet
-        const { error: directError } = await supabase
-          .from('user_permissions')
-          .update({
-            role: data.role,
-            permissions: data.permissions
-          })
-          .eq('user_id', editingUser.id);
-
-        if (directError) throw directError;
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to update user");
       }
 
       toast.success("User updated successfully");
@@ -201,32 +185,19 @@ const UserManagement = () => {
     setIsLoading(true);
     try {
       // Delete the user using admin deleteUser function
-      const { error } = await supabase.functions.invoke('delete-user', {
+      const response = await supabase.functions.invoke('delete-user', {
         body: { userId }
       });
       
-      if (error) throw error;
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to delete user");
+      }
       
       toast.success("User deleted successfully");
       fetchUsers();
     } catch (error: any) {
       console.error('Error deleting user:', error);
       toast.error(error.message || "Failed to delete user");
-      
-      // Fallback approach - try to delete the permissions record
-      try {
-        const { error } = await supabase
-          .from('user_permissions')
-          .delete()
-          .eq('user_id', userId);
-        
-        if (!error) {
-          toast.success("User permissions removed");
-          fetchUsers();
-        }
-      } catch (fallbackError) {
-        console.error('Error in fallback delete:', fallbackError);
-      }
     } finally {
       setIsLoading(false);
     }

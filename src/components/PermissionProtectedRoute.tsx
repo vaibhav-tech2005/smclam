@@ -33,12 +33,8 @@ const PermissionProtectedRoute = ({
   }
 
   // Check if user has the required permission or is admin
-  if (requiredPermission && !isAdmin) {
-    const userHasPermission = hasPermission(requiredPermission);
-    
-    if (!userHasPermission) {
-      return <Navigate to="/unauthorized" />;
-    }
+  if (requiredPermission && !isAdmin && !hasPermission(requiredPermission)) {
+    return <Navigate to="/unauthorized" />;
   }
 
   return <>{children}</>;
