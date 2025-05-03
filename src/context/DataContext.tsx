@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -430,15 +429,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // New helper function to get laminates grouped by company name
   const getLaminatesByCompany = () => {
-    const companies = new Map<string, number>();
+    const companies = new Map<string, { count: number, stockQuantity: number }>();
     
     laminates.forEach(laminate => {
-      const currentCount = companies.get(laminate.brandName) || 0;
-      companies.set(laminate.brandName, currentCount + 1);
+      const company = laminate.brandName;
+      const current = companies.get(company) || { count: 0, stockQuantity: 0 };
+      
+      companies.set(company, {
+        count: current.count + 1,
+        stockQuantity: current.stockQuantity + laminate.currentStock
+      });
     });
     
     return Array.from(companies.entries())
-      .map(([company, count]) => ({ company, count }))
+      .map(([company, data]) => ({ 
+        company, 
+        count: data.count,
+        stockQuantity: data.stockQuantity 
+      }))
       .sort((a, b) => b.count - a.count);
   };
   
