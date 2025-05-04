@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,17 +37,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase
         .from('user_permissions')
         .select('*')
-        .eq('user_id', userId)
-        .single();
+        .eq('user_id', userId);
       
       if (error) {
         console.error('Error fetching user permissions:', error);
         return { role: 'user' as Role, permissions: [] };
       }
       
+      // If no data or empty array, return default permissions
+      if (!data || data.length === 0) {
+        console.log('No user permissions found, using defaults');
+        return { role: 'user' as Role, permissions: [] };
+      }
+      
+      // Use the first record if multiple exist
       return { 
-        role: (data?.role || 'user') as Role, 
-        permissions: data?.permissions || [] 
+        role: (data[0]?.role || 'user') as Role, 
+        permissions: data[0]?.permissions || [] 
       };
     } catch (error) {
       console.error('Error in fetchUserPermissions:', error);
@@ -60,20 +65,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { role, permissions } = await fetchUserPermissions(supaUser.id);
       
+      // Create a basic admin role for specific email addresses as fallback
+      const isAdminEmail = supaUser.email?.includes("admin") || false;
+      const effectiveRole = role || (isAdminEmail ? "admin" : "user");
+      
       setUser({
         id: supaUser.id,
         username: supaUser.email || "user",
-        role,
-        permissions
+        role: effectiveRole as Role,
+        permissions: permissions || (effectiveRole === "admin" ? ["dashboard", "inventory", "transactions", "reports", "users", "settings"] : [])
       });
     } catch (error) {
       console.error('Error updating user with permissions:', error);
       
       // Fallback to basic user info without permissions
+      const isAdminEmail = supaUser.email?.includes("admin") || false;
       setUser({
         id: supaUser.id,
         username: supaUser.email || "user",
-        role: supaUser.email?.includes("admin") ? "admin" : "user"
+        role: isAdminEmail ? "admin" : "user",
+        permissions: isAdminEmail ? ["dashboard", "inventory", "transactions", "reports", "users", "settings"] : []
       });
     }
   };

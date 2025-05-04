@@ -2,10 +2,17 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const Unauthorized = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
@@ -20,10 +27,19 @@ const Unauthorized = () => {
           You don't have permission to access this page. Please contact your administrator if you believe this is an error.
         </p>
         <div className="flex flex-col space-y-2">
-          <Button onClick={() => navigate("/")}>
-            Return to Dashboard
+          <Button onClick={() => navigate("/dashboard")} variant="default">
+            Try Dashboard
+          </Button>
+          <Button onClick={() => navigate("/login")} variant="outline">
+            Return to Login
+          </Button>
+          <Button onClick={handleLogout} variant="ghost" className="mt-2">
+            <LogOut className="h-4 w-4 mr-2" /> Logout and Try Again
           </Button>
         </div>
+        <p className="text-sm text-gray-500 mt-6">
+          If you're seeing this page after logging in, your user account may not have the required permissions configured yet.
+        </p>
       </div>
     </div>
   );
