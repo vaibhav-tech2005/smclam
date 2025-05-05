@@ -20,7 +20,7 @@ import { dashboardPermissions } from "./PermissionsOverview";
 // Define form schemas
 export const userFormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }).optional().or(z.literal('')),
   role: z.string(),
   permissions: z.array(z.string()).default([])
 });
@@ -66,6 +66,7 @@ const UserFormDialog = ({
       form.setValue("email", editingUser.email);
       form.setValue("role", editingUser.role);
       form.setValue("permissions", editingUser.permissions || []);
+      // We don't set password for editing existing user
     } else {
       form.reset({
         email: "",
@@ -75,6 +76,18 @@ const UserFormDialog = ({
       });
     }
   }, [editingUser, form]);
+  
+  // Handle form submission
+  const handleSubmit = (values: UserFormValues) => {
+    // For editing users, make password optional
+    if (editingUser && (!values.password || values.password.trim() === '')) {
+      // Remove password field from submission if it's empty and we're editing
+      const { password, ...dataWithoutPassword } = values;
+      onSubmit(dataWithoutPassword as UserFormValues);
+    } else {
+      onSubmit(values);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -84,7 +97,7 @@ const UserFormDialog = ({
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="email"

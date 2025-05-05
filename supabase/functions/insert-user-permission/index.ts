@@ -15,11 +15,12 @@ serve(async (req) => {
 
   try {
     // Get the request body
-    const { userId, email, role, permissions } = await req.json();
+    const body = await req.json();
+    const { email, password, role, permissions } = body;
 
-    if (!userId || !email) {
+    if (!email) {
       return new Response(
-        JSON.stringify({ error: "User ID and email are required" }),
+        JSON.stringify({ error: "Email is required" }),
         { 
           status: 400,
           headers: { 'Content-Type': 'application/json', ...corsHeaders }
@@ -33,10 +34,26 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // First create the user in auth.users
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email for testing
+    });
+
+    if (authError) {
+      throw authError;
+    }
+
+    if (!authData.user) {
+      throw new Error("Failed to create user");
+    }
+
+    // Then insert the user permissions
     const { data, error } = await supabaseAdmin
       .from('user_permissions')
       .insert({
-        user_id: userId,
+        user_id: authData.user.id,
         email: email,
         role: role || 'user',
         permissions: permissions || []
@@ -47,7 +64,11 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, data }),
+      JSON.stringify({ 
+        success: true, 
+        message: "User created successfully",
+        user: authData.user
+      }),
       { 
         status: 200,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }

@@ -58,8 +58,10 @@ export const useUserManagement = () => {
   const handleAddUser = async (data: UserFormValues) => {
     setIsLoading(true);
     try {
-      // Create the user in Supabase Auth
-      const authResponse = await supabase.functions.invoke('insert-user-permission', {
+      console.log("Creating user with data:", data);
+      
+      // Call our edge function to create the user and set permissions
+      const { data: response, error } = await supabase.functions.invoke('insert-user-permission', {
         body: {
           email: data.email,
           password: data.password,
@@ -68,12 +70,18 @@ export const useUserManagement = () => {
         }
       });
 
-      if (authResponse.error) {
-        throw new Error(authResponse.error.message || "Failed to create user");
+      if (error) {
+        console.error("Error response from function:", error);
+        throw new Error(error.message || "Failed to create user");
+      }
+      
+      if (!response.success) {
+        console.error("Function returned error:", response);
+        throw new Error(response.error || "Failed to create user");
       }
 
       toast.success("User created successfully");
-      fetchUsers();
+      fetchUsers(); // Refresh the user list
       setIsDialogOpen(false);
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -90,7 +98,7 @@ export const useUserManagement = () => {
     setIsLoading(true);
     try {
       // Update user permissions using edge function
-      const response = await supabase.functions.invoke('update-user-permission', {
+      const { data: response, error } = await supabase.functions.invoke('update-user-permission', {
         body: { 
           userId: editingUser.id,
           role: data.role,
@@ -98,8 +106,8 @@ export const useUserManagement = () => {
         }
       });
 
-      if (response.error) {
-        throw new Error(response.error.message || "Failed to update user");
+      if (error) {
+        throw new Error(error.message || "Failed to update user");
       }
 
       toast.success("User updated successfully");
@@ -121,12 +129,12 @@ export const useUserManagement = () => {
     setIsLoading(true);
     try {
       // Delete the user using admin deleteUser function
-      const response = await supabase.functions.invoke('delete-user', {
+      const { data: response, error } = await supabase.functions.invoke('delete-user', {
         body: { userId }
       });
       
-      if (response.error) {
-        throw new Error(response.error.message || "Failed to delete user");
+      if (error) {
+        throw new Error(error.message || "Failed to delete user");
       }
       
       toast.success("User deleted successfully");
