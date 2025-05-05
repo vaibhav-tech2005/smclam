@@ -28,9 +28,9 @@ interface DataContextType {
   updateLaminate: (id: string, updates: Partial<Omit<Laminate, "id" | "currentStock">>) => void;
   deleteLaminate: (id: string) => void;
   clearAllLaminates: () => void;
-  addTransaction: (transaction: Omit<Transaction, "id">) => void;
-  updateTransaction: (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => void;
-  deleteTransaction: (id: string) => void;
+  addTransaction: (transaction: Omit<Transaction, "id">) => Promise<void>;
+  updateTransaction: (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   getLowStockLaminates: () => Laminate[];
   getTopSellingLaminates: (limit?: number) => { laminate: Laminate; totalSold: number }[];
   getLaminateById: (id: string) => Laminate | undefined;
@@ -43,53 +43,71 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [laminates, setLaminates] = useState<Laminate[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Fetch laminates from Supabase
   const fetchLaminates = async () => {
-    const { data, error } = await supabase
-      .from('inventory_items')
-      .select('*');
-    
-    if (error) {
-      toast.error("Error fetching laminates");
-      return;
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('*');
+      
+      if (error) {
+        toast.error("Error fetching laminates");
+        return;
+      }
+      
+      // Map database fields to app model fields
+      const mappedLaminates: Laminate[] = data.map(item => ({
+        id: item.id,
+        brandName: item.company,
+        laminateNumber: item.laminate_number,
+        laminateFinish: item.laminate_finish,
+        currentStock: item.quantity || 0
+      }));
+      
+      setLaminates(mappedLaminates);
+    } catch (err) {
+      console.error("Error in fetchLaminates:", err);
+      toast.error("Failed to load inventory data");
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Map database fields to app model fields
-    const mappedLaminates: Laminate[] = data.map(item => ({
-      id: item.id,
-      brandName: item.company,
-      laminateNumber: item.laminate_number,
-      laminateFinish: item.laminate_finish,
-      currentStock: item.quantity || 0
-    }));
-    
-    setLaminates(mappedLaminates);
   };
 
   // Fetch transactions from Supabase
   const fetchTransactions = async () => {
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*');
-    
-    if (error) {
-      toast.error("Error fetching transactions");
-      return;
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('date', { ascending: false });
+      
+      if (error) {
+        toast.error("Error fetching transactions");
+        return;
+      }
+      
+      // Map database fields to app model fields
+      const mappedTransactions: Transaction[] = data.map(item => ({
+        id: item.id,
+        type: item.type as "purchase" | "sale",
+        laminateId: item.inventory_item_id,
+        date: item.date,
+        quantity: item.quantity,
+        customerName: item.customer_name || undefined,
+        remarks: item.notes || undefined
+      }));
+      
+      setTransactions(mappedTransactions);
+    } catch (err) {
+      console.error("Error in fetchTransactions:", err);
+      toast.error("Failed to load transaction data");
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Map database fields to app model fields
-    const mappedTransactions: Transaction[] = data.map(item => ({
-      id: item.id,
-      type: item.type as "purchase" | "sale",
-      laminateId: item.inventory_item_id,
-      date: item.date,
-      quantity: item.quantity,
-      customerName: item.customer_name || undefined,
-      remarks: item.notes || undefined
-    }));
-    
-    setTransactions(mappedTransactions);
   };
 
   // Initial data fetch on component mount
@@ -259,6 +277,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addTransaction = async (transaction: Omit<Transaction, "id">) => {
     try {
+      setIsLoading(true);
       // First add the transaction
       const { data, error } = await supabase
         .from('transactions')
@@ -277,27 +296,43 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      // Optimistically update the UI
+      setTransactions(prev => [
+        {
+          id: data[0].id,
+          type: transaction.type,
+          laminateId: transaction.laminateId,
+          date: transaction.date,
+          quantity: transaction.quantity,
+          customerName: transaction.customerName,
+          remarks: transaction.remarks
+        },
+        ...prev
+      ]);
+
       // Then immediately update the inventory stock for this laminate
       const successful = await updateLaminateStock(transaction.laminateId);
     
       if (successful) {
         toast.success(`${transaction.type === "purchase" ? "Purchase" : "Sale"} recorded and inventory updated`);
         
-        // Refresh both transactions and laminates to show updated data
-        await fetchTransactions();
+        // Refresh laminates to show updated stock levels
         await fetchLaminates();
       } else {
         // We already showed an error in updateLaminateStock if it failed
-        await fetchTransactions(); // Still refresh transactions even if stock update failed
+        await fetchTransactions(); // Refresh transactions to ensure consistency
       }
     } catch (error) {
       console.error("Error in addTransaction:", error);
       toast.error("Failed to add transaction");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => {
     try {
+      setIsLoading(true);
       // First, get the current transaction to know which laminate to update
       const transaction = transactions.find(t => t.id === id);
       if (!transaction) {
@@ -323,6 +358,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
     
+      // Optimistically update the UI
+      setTransactions(prev => prev.map(t => 
+        t.id === id 
+          ? { ...t, ...updates } 
+          : t
+      ));
+
       // List of laminates that need stock updates
       const laminatesToUpdate = new Set<string>();
       
@@ -347,17 +389,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.warning("Transaction updated but there was an issue updating inventory");
       }
       
-      // Refresh data
-      await fetchTransactions();
+      // Refresh laminates to show updated stock levels
       await fetchLaminates();
     } catch (error) {
       console.error("Error in updateTransaction:", error);
       toast.error("Failed to update transaction");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const deleteTransaction = async (id: string) => {
     try {
+      setIsLoading(true);
       // First, get the transaction to know which laminate to update after deletion
       const transaction = transactions.find(t => t.id === id);
       if (!transaction) {
@@ -367,13 +411,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const laminateId = transaction.laminateId;
       
+      // Optimistically update the UI first for better responsiveness
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      
       const { error } = await supabase
         .from('transactions')
         .delete()
         .eq('id', id);
     
       if (error) {
+        // If there's an error, revert the optimistic update
         toast.error("Error deleting transaction");
+        await fetchTransactions();
         return;
       }
       
@@ -386,12 +435,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.warning("Transaction deleted but there was an issue updating inventory");
       }
       
-      // Refresh data
-      await fetchTransactions();
+      // Refresh laminates to show updated stock levels
       await fetchLaminates();
     } catch (error) {
       console.error("Error in deleteTransaction:", error);
       toast.error("Failed to delete transaction");
+      // Revert the optimistic update in case of error
+      await fetchTransactions();
+    } finally {
+      setIsLoading(false);
     }
   };
 

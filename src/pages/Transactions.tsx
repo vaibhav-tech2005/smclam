@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,7 +47,8 @@ const TransactionForm = ({
   laminates,
   transactionType,
   onSubmit,
-  onCancel
+  onCancel,
+  isSubmitting
 }: {
   formData: any;
   handleFormChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -55,14 +57,12 @@ const TransactionForm = ({
   transactionType: "purchase" | "sale";
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
+  isSubmitting: boolean;
 }) => {
   const laminateOptions = laminates.map((laminate) => ({
     label: `${laminate.brandName} - ${laminate.laminateNumber} (${laminate.laminateFinish})`,
     value: laminate.id
   }));
-
-  console.log("TransactionForm - formData:", formData);
-  console.log("TransactionForm - laminateOptions:", laminateOptions);
   
   return (
     <form onSubmit={onSubmit}>
@@ -73,7 +73,6 @@ const TransactionForm = ({
             options={laminateOptions}
             value={formData.laminateId}
             onValueChange={(value) => {
-              console.log("ComboboxSelect changed value to:", value);
               handleSelectChange("laminateId", value);
             }}
             placeholder="Type to search for a laminate"
@@ -132,11 +131,11 @@ const TransactionForm = ({
       </div>
 
       <DialogFooter className="mt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
           Cancel
         </Button>
-        <Button type="submit">
-          {transactionType === "purchase" ? "Record Purchase" : "Record Sale"}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Processing..." : transactionType === "purchase" ? "Record Purchase" : "Record Sale"}
         </Button>
       </DialogFooter>
     </form>
@@ -154,7 +153,8 @@ const Transactions = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [transactionsKey, setTransactionsKey] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [displayedTransactions, setDisplayedTransactions] = useState<Transaction[]>([]);
   
   const initialFormState = {
     laminateId: "",
@@ -166,33 +166,34 @@ const Transactions = () => {
   
   const [formData, setFormData] = useState(initialFormState);
 
+  // Filter and sort transactions when the dependencies change
   useEffect(() => {
-    setTransactionsKey(prev => prev + 1);
-  }, [transactions]);
+    const filtered = transactions.filter((transaction) => {
+      if (transactionTab !== "all" && transaction.type !== transactionTab) {
+        return false;
+      }
 
-  const filteredTransactions = transactions.filter((transaction) => {
-    if (transactionTab !== "all" && transaction.type !== transactionTab) {
-      return false;
-    }
+      const laminate = getLaminateById(transaction.laminateId);
+      if (!laminate) return false;
 
-    const laminate = getLaminateById(transaction.laminateId);
-    if (!laminate) return false;
+      const searchTerms = [
+        laminate.brandName,
+        laminate.laminateNumber,
+        transaction.customerName || "",
+        transaction.remarks || ""
+      ];
 
-    const searchTerms = [
-      laminate.brandName,
-      laminate.laminateNumber,
-      transaction.customerName || "",
-      transaction.remarks || ""
-    ];
+      return searchTerms.some(term => 
+        term.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    });
 
-    return searchTerms.some(term => 
-      term.toLowerCase().includes(searchQuery.toLowerCase())
+    const sorted = [...filtered].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-  });
-
-  const sortedTransactions = [...filteredTransactions].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+    
+    setDisplayedTransactions(sorted);
+  }, [transactions, transactionTab, searchQuery, getLaminateById]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -200,7 +201,6 @@ const Transactions = () => {
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    console.log(`Field ${name} changing to: ${value}`);
     setFormData(prev => ({
       ...prev,
       [name]: name === "quantity" ? parseInt(value) : value
@@ -208,12 +208,10 @@ const Transactions = () => {
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    console.log(`Select ${name} changing to: ${value}`);
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-    console.log("Updated formData:", {...formData, [name]: value});
   };
 
   const openAddPurchaseDialog = () => {
@@ -243,72 +241,92 @@ const Transactions = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleAddPurchaseSubmit = (e: React.FormEvent) => {
+  const handleAddPurchaseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log("Submitting purchase with data:", formData);
     
     if (!formData.laminateId) {
       alert("Please select a laminate first");
       return;
     }
     
-    addTransaction({
-      type: "purchase",
-      laminateId: formData.laminateId,
-      date: formData.date,
-      quantity: formData.quantity,
-      remarks: formData.remarks || undefined
-    });
+    setIsProcessing(true);
     
-    setIsAddPurchaseDialogOpen(false);
-    setFormData(initialFormState);
+    try {
+      await addTransaction({
+        type: "purchase",
+        laminateId: formData.laminateId,
+        date: formData.date,
+        quantity: formData.quantity,
+        remarks: formData.remarks || undefined
+      });
+      
+      setIsAddPurchaseDialogOpen(false);
+      setFormData(initialFormState);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleAddSaleSubmit = (e: React.FormEvent) => {
+  const handleAddSaleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log("Submitting sale with data:", formData);
     
     if (!formData.laminateId) {
       alert("Please select a laminate first");
       return;
     }
     
-    addTransaction({
-      type: "sale",
-      laminateId: formData.laminateId,
-      date: formData.date,
-      quantity: formData.quantity,
-      customerName: formData.customerName || undefined,
-      remarks: formData.remarks || undefined
-    });
+    setIsProcessing(true);
     
-    setIsAddSaleDialogOpen(false);
-    setFormData(initialFormState);
+    try {
+      await addTransaction({
+        type: "sale",
+        laminateId: formData.laminateId,
+        date: formData.date,
+        quantity: formData.quantity,
+        customerName: formData.customerName || undefined,
+        remarks: formData.remarks || undefined
+      });
+      
+      setIsAddSaleDialogOpen(false);
+      setFormData(initialFormState);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!selectedTransaction) return;
     
-    updateTransaction(selectedTransaction.id, {
-      laminateId: formData.laminateId,
-      date: formData.date,
-      quantity: formData.quantity,
-      customerName: formData.customerName || undefined,
-      remarks: formData.remarks || undefined
-    });
+    setIsProcessing(true);
     
-    setIsEditDialogOpen(false);
+    try {
+      await updateTransaction(selectedTransaction.id, {
+        laminateId: formData.laminateId,
+        date: formData.date,
+        quantity: formData.quantity,
+        customerName: formData.customerName || undefined,
+        remarks: formData.remarks || undefined
+      });
+      
+      setIsEditDialogOpen(false);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleDeleteSubmit = () => {
+  const handleDeleteSubmit = async () => {
     if (!selectedTransaction) return;
     
-    deleteTransaction(selectedTransaction.id);
-    setIsDeleteDialogOpen(false);
+    setIsProcessing(true);
+    
+    try {
+      await deleteTransaction(selectedTransaction.id);
+      setIsDeleteDialogOpen(false);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -329,10 +347,10 @@ const Transactions = () => {
           </p>
         </div>
         <div className="flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
-          <Button onClick={openAddPurchaseDialog}>
+          <Button onClick={openAddPurchaseDialog} disabled={isProcessing}>
             <ArrowDown className="mr-1 h-4 w-4" /> Add Purchase
           </Button>
-          <Button onClick={openAddSaleDialog}>
+          <Button onClick={openAddSaleDialog} disabled={isProcessing}>
             <ArrowUp className="mr-1 h-4 w-4" /> Add Sale
           </Button>
         </div>
@@ -371,8 +389,8 @@ const Transactions = () => {
                   <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody key={transactionsKey}>
-                {sortedTransactions.length === 0 ? (
+              <TableBody>
+                {displayedTransactions.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={7}
@@ -384,7 +402,7 @@ const Transactions = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  sortedTransactions.map((transaction) => {
+                  displayedTransactions.map((transaction) => {
                     const laminate = getLaminateById(transaction.laminateId);
                     if (!laminate) return null;
 
@@ -429,6 +447,7 @@ const Transactions = () => {
                               <Button
                                 variant="ghost"
                                 className="h-8 w-8 p-0"
+                                disabled={isProcessing}
                               >
                                 <span className="sr-only">Open menu</span>
                                 <svg
@@ -453,6 +472,7 @@ const Transactions = () => {
                               <DropdownMenuItem
                                 onClick={() => openEditDialog(transaction)}
                                 className="cursor-pointer"
+                                disabled={isProcessing}
                               >
                                 <Pencil className="mr-2 h-4 w-4" />
                                 Edit
@@ -460,6 +480,7 @@ const Transactions = () => {
                               <DropdownMenuItem
                                 onClick={() => openDeleteDialog(transaction)}
                                 className="cursor-pointer text-destructive focus:text-destructive"
+                                disabled={isProcessing}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
@@ -493,6 +514,7 @@ const Transactions = () => {
             transactionType="purchase"
             onSubmit={handleAddPurchaseSubmit}
             onCancel={() => setIsAddPurchaseDialogOpen(false)}
+            isSubmitting={isProcessing}
           />
         </DialogContent>
       </Dialog>
@@ -513,6 +535,7 @@ const Transactions = () => {
             transactionType="sale"
             onSubmit={handleAddSaleSubmit}
             onCancel={() => setIsAddSaleDialogOpen(false)}
+            isSubmitting={isProcessing}
           />
         </DialogContent>
       </Dialog>
@@ -534,12 +557,21 @@ const Transactions = () => {
               transactionType={selectedTransaction.type}
               onSubmit={handleEditSubmit}
               onCancel={() => setIsEditDialogOpen(false)}
+              isSubmitting={isProcessing}
             />
           )}
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog 
+        open={isDeleteDialogOpen} 
+        onOpenChange={(open) => {
+          // Only allow closing if we're not processing
+          if (!isProcessing) {
+            setIsDeleteDialogOpen(open);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Transaction</DialogTitle>
@@ -573,6 +605,7 @@ const Transactions = () => {
               type="button"
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isProcessing}
             >
               Cancel
             </Button>
@@ -580,8 +613,9 @@ const Transactions = () => {
               type="button"
               variant="destructive"
               onClick={handleDeleteSubmit}
+              disabled={isProcessing}
             >
-              Delete
+              {isProcessing ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
