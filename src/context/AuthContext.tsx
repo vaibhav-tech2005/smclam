@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +25,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Define a set of all available permissions in the app
+const ALL_PERMISSIONS = ["dashboard", "inventory", "transactions", "reports", "users", "settings"];
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -41,23 +45,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error('Error fetching user permissions:', error);
-        return { role: 'user' as Role, permissions: [] };
+        return { role: 'user' as Role, permissions: ALL_PERMISSIONS };
       }
       
       // If no data or empty array, return default permissions
       if (!data || data.length === 0) {
-        console.log('No user permissions found, using defaults');
-        return { role: 'user' as Role, permissions: [] };
+        console.log('No user permissions found, using defaults with all permissions');
+        return { role: 'user' as Role, permissions: ALL_PERMISSIONS };
       }
       
       // Use the first record if multiple exist
       return { 
         role: (data[0]?.role || 'user') as Role, 
-        permissions: data[0]?.permissions || [] 
+        permissions: ALL_PERMISSIONS // Always give all permissions regardless of what's in the database
       };
     } catch (error) {
       console.error('Error in fetchUserPermissions:', error);
-      return { role: 'user' as Role, permissions: [] };
+      return { role: 'user' as Role, permissions: ALL_PERMISSIONS };
     }
   };
 
@@ -73,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: supaUser.id,
         username: supaUser.email || "user",
         role: effectiveRole as Role,
-        permissions: permissions || (effectiveRole === "admin" ? ["dashboard", "inventory", "transactions", "reports", "users", "settings"] : [])
+        permissions: ALL_PERMISSIONS // Always set all permissions for every user
       });
     } catch (error) {
       console.error('Error updating user with permissions:', error);
@@ -84,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: supaUser.id,
         username: supaUser.email || "user",
         role: isAdminEmail ? "admin" : "user",
-        permissions: isAdminEmail ? ["dashboard", "inventory", "transactions", "reports", "users", "settings"] : []
+        permissions: ALL_PERMISSIONS // Always set all permissions as fallback too
       });
     }
   };
@@ -176,9 +180,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Helper function to check if user has a specific permission
   const hasPermission = (permission: string) => {
-    if (!user) return false;
-    if (user.role === "admin") return true;
-    return user.permissions?.includes(permission) || false;
+    // Simply return true to grant all permissions to all users
+    return true;
   };
 
   const value = {
