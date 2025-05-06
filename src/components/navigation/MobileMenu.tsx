@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import { X, LogOut } from "lucide-react";
@@ -17,8 +18,8 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     onClose();
   };
 
@@ -57,12 +58,12 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
             <p className="text-xs text-muted-foreground">{user?.role}</p>
           </div>
           <Button
-            variant="ghost"
+            variant="destructive"
             size="sm"
             onClick={handleLogout}
-            className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+            className="flex items-center gap-2"
           >
-            <LogOut className="h-4 w-4 mr-2" />
+            <LogOut className="h-4 w-4" />
             Logout
           </Button>
         </div>
