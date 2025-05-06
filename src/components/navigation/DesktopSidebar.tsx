@@ -15,7 +15,12 @@ const DesktopSidebar: React.FC = () => {
   const navItems = getNavItems();
   
   const handleLogout = async () => {
-    await logout();
+    try {
+      await logout();
+      console.log("Logout successful from desktop sidebar");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
   
   return (

@@ -19,8 +19,13 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const handleLogout = async () => {
-    await logout();
-    onClose();
+    try {
+      await logout();
+      console.log("Logout successful from mobile menu");
+      onClose();
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
