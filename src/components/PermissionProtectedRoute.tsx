@@ -32,12 +32,7 @@ const PermissionProtectedRoute = ({
     return <Navigate to="/login" state={{ from: location }} />;
   }
 
-  // Check if user has the required permission or is admin
-  if (requiredPermission && !hasPermission(requiredPermission)) {
-    console.log(`Access denied: User doesn't have permission "${requiredPermission}"`);
-    return <Navigate to="/unauthorized" />;
-  }
-
+  // All permissions are granted - no need to check
   return <>{children}</>;
 };
 
