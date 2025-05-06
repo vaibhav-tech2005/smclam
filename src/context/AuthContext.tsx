@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,23 +44,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error('Error fetching user permissions:', error);
-        return { role: 'user' as Role, permissions: ALL_PERMISSIONS };
+        return { role: 'user' as Role, permissions: [] };
       }
       
       // If no data or empty array, return default permissions
       if (!data || data.length === 0) {
-        console.log('No user permissions found, using defaults with all permissions');
-        return { role: 'user' as Role, permissions: ALL_PERMISSIONS };
+        console.log('No user permissions found, using defaults');
+        return { role: 'user' as Role, permissions: [] };
       }
       
       // Use the first record if multiple exist
       return { 
         role: (data[0]?.role || 'user') as Role, 
-        permissions: ALL_PERMISSIONS // Always give all permissions regardless of what's in the database
+        permissions: data[0]?.permissions || [] 
       };
     } catch (error) {
       console.error('Error in fetchUserPermissions:', error);
-      return { role: 'user' as Role, permissions: ALL_PERMISSIONS };
+      return { role: 'user' as Role, permissions: [] };
     }
   };
 
@@ -77,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: supaUser.id,
         username: supaUser.email || "user",
         role: effectiveRole as Role,
-        permissions: ALL_PERMISSIONS // Always set all permissions for every user
+        permissions: permissions // Use the actual permissions from the database
       });
     } catch (error) {
       console.error('Error updating user with permissions:', error);
@@ -88,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: supaUser.id,
         username: supaUser.email || "user",
         role: isAdminEmail ? "admin" : "user",
-        permissions: ALL_PERMISSIONS // Always set all permissions as fallback too
+        permissions: [] // Default to no permissions
       });
     }
   };
@@ -180,8 +179,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Helper function to check if user has a specific permission
   const hasPermission = (permission: string) => {
-    // Simply return true to grant all permissions to all users
-    return true;
+    // If user is admin, they have all permissions
+    if (user?.role === "admin") {
+      return true;
+    }
+    
+    // Otherwise check if the user has the specific permission
+    return user?.permissions?.includes(permission) || false;
   };
 
   const value = {

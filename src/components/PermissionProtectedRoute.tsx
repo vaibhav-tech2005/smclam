@@ -33,7 +33,8 @@ const PermissionProtectedRoute = ({
   }
 
   // Check if user has the required permission or is admin
-  if (requiredPermission && !isAdmin && !hasPermission(requiredPermission)) {
+  if (requiredPermission && !hasPermission(requiredPermission)) {
+    console.log(`Access denied: User doesn't have permission "${requiredPermission}"`);
     return <Navigate to="/unauthorized" />;
   }
 
