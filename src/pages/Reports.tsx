@@ -81,7 +81,7 @@ const Reports = () => {
       const laminate = getLaminateById(transaction.laminateId);
       if (!laminate) return acc;
       
-      const key = `${laminate.brandName} ${laminate.laminateNumber}`;
+      const key = `${laminate.brandName} ${laminate.laminateNumber} (${laminate.laminateFinish})`;
       if (!acc[key]) acc[key] = 0;
       acc[key] += transaction.quantity;
       
@@ -135,7 +135,7 @@ const Reports = () => {
       return [
         transaction.date,
         transaction.type,
-        laminate ? `${laminate.brandName} ${laminate.laminateNumber}` : "Unknown",
+        laminate ? `${laminate.brandName} ${laminate.laminateNumber} (${laminate.laminateFinish})` : "Unknown",
         transaction.quantity,
         transaction.customerName || "",
         transaction.remarks || ""
@@ -416,7 +416,7 @@ const Reports = () => {
                             <TableCell>{formatDate(transaction.date)}</TableCell>
                             <TableCell>
                               {laminate
-                                ? `${laminate.brandName} ${laminate.laminateNumber}`
+                                ? `${laminate.brandName} ${laminate.laminateNumber} (${laminate.laminateFinish})`
                                 : "Unknown"}
                             </TableCell>
                             <TableCell>{transaction.quantity}</TableCell>
@@ -449,7 +449,7 @@ const Reports = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={topSellingLaminates.map(item => ({
-                      name: `${item.laminate.brandName} ${item.laminate.laminateNumber}`,
+                      name: `${item.laminate.brandName} ${item.laminate.laminateNumber} (${item.laminate.laminateFinish})`,
                       units: item.totalSold
                     }))}
                     margin={{ top: 5, right: 30, left: 20, bottom: 70 }}

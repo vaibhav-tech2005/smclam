@@ -296,28 +296,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Optimistically update the UI
-      setTransactions(prev => [
-        {
-          id: data[0].id,
-          type: transaction.type,
-          laminateId: transaction.laminateId,
-          date: transaction.date,
-          quantity: transaction.quantity,
-          customerName: transaction.customerName,
-          remarks: transaction.remarks
-        },
-        ...prev
-      ]);
-
-      // Then immediately update the inventory stock for this laminate
+      // Update the inventory stock for this laminate
       const successful = await updateLaminateStock(transaction.laminateId);
     
       if (successful) {
         toast.success(`${transaction.type === "purchase" ? "Purchase" : "Sale"} recorded and inventory updated`);
         
-        // Refresh laminates to show updated stock levels
-        await fetchLaminates();
+        // Refresh both laminates and transactions data
+        await Promise.all([fetchLaminates(), fetchTransactions()]);
       } else {
         // We already showed an error in updateLaminateStock if it failed
         await fetchTransactions(); // Refresh transactions to ensure consistency
@@ -357,13 +343,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.error("Error updating transaction");
         return;
       }
-    
-      // Optimistically update the UI
-      setTransactions(prev => prev.map(t => 
-        t.id === id 
-          ? { ...t, ...updates } 
-          : t
-      ));
 
       // List of laminates that need stock updates
       const laminatesToUpdate = new Set<string>();
@@ -389,8 +368,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.warning("Transaction updated but there was an issue updating inventory");
       }
       
-      // Refresh laminates to show updated stock levels
-      await fetchLaminates();
+      // Refresh both laminates and transactions data
+      await Promise.all([fetchLaminates(), fetchTransactions()]);
     } catch (error) {
       console.error("Error in updateTransaction:", error);
       toast.error("Failed to update transaction");
@@ -411,18 +390,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const laminateId = transaction.laminateId;
       
-      // Optimistically update the UI first for better responsiveness
-      setTransactions(prev => prev.filter(t => t.id !== id));
-      
       const { error } = await supabase
         .from('transactions')
         .delete()
         .eq('id', id);
     
       if (error) {
-        // If there's an error, revert the optimistic update
         toast.error("Error deleting transaction");
-        await fetchTransactions();
         return;
       }
       
@@ -435,13 +409,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.warning("Transaction deleted but there was an issue updating inventory");
       }
       
-      // Refresh laminates to show updated stock levels
-      await fetchLaminates();
+      // Refresh both laminates and transactions data
+      await Promise.all([fetchLaminates(), fetchTransactions()]);
     } catch (error) {
       console.error("Error in deleteTransaction:", error);
       toast.error("Failed to delete transaction");
-      // Revert the optimistic update in case of error
-      await fetchTransactions();
     } finally {
       setIsLoading(false);
     }
