@@ -29,6 +29,7 @@ interface DataContextType {
   deleteLaminate: (id: string) => void;
   clearAllLaminates: () => void;
   addTransaction: (transaction: Omit<Transaction, "id">) => Promise<void>;
+  addBulkTransactions: (items: { laminateId: string; quantity: number }[], commonData: { date: string; customerName?: string; remarks?: string; type: "purchase" | "sale" }) => Promise<void>;
   updateTransaction: (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   getLowStockLaminates: () => Laminate[];
@@ -316,6 +317,57 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const addBulkTransactions = async (transactionItems: { laminateId: string; quantity: number }[], commonData: { date: string; customerName?: string; remarks?: string; type: "purchase" | "sale" }) => {
+    try {
+      setIsLoading(true);
+      
+      // Prepare all transactions for bulk insert
+      const transactionsToInsert = transactionItems.map(item => ({
+        type: commonData.type,
+        inventory_item_id: item.laminateId,
+        date: commonData.date,
+        quantity: item.quantity,
+        customer_name: commonData.customerName || null,
+        notes: commonData.remarks || null
+      }));
+      
+      // Insert all transactions in a single call
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert(transactionsToInsert)
+        .select();
+    
+      if (error) {
+        toast.error("Error adding bulk transactions");
+        return;
+      }
+
+      // Update inventory stock for all affected laminates
+      const uniqueLaminateIds = [...new Set(transactionItems.map(item => item.laminateId))];
+      let allSuccessful = true;
+      
+      for (const laminateId of uniqueLaminateIds) {
+        const success = await updateLaminateStock(laminateId);
+        if (!success) allSuccessful = false;
+      }
+      
+      const itemCount = transactionItems.length;
+      if (allSuccessful) {
+        toast.success(`${itemCount} ${commonData.type === "purchase" ? "purchases" : "sales"} recorded and inventory updated`);
+      } else {
+        toast.warning(`${itemCount} ${commonData.type === "purchase" ? "purchases" : "sales"} recorded but there were issues updating some inventory`);
+      }
+      
+      // Refresh both laminates and transactions data
+      await Promise.all([fetchLaminates(), fetchTransactions()]);
+    } catch (error) {
+      console.error("Error in addBulkTransactions:", error);
+      toast.error("Failed to add bulk transactions");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, "id" | "type">>) => {
     try {
       setIsLoading(true);
@@ -502,6 +554,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deleteLaminate,
     clearAllLaminates,
     addTransaction,
+    addBulkTransactions,
     updateTransaction,
     deleteTransaction,
     getLowStockLaminates,

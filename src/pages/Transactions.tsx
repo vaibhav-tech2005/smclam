@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, ArrowUp, ArrowDown, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, ArrowUp, ArrowDown, Pencil, Trash2, Package } from "lucide-react";
 import { useData, Laminate, Transaction } from "@/context/DataContext";
 import {
   Dialog,
@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format, parseISO } from "date-fns";
 import { ComboboxSelect } from "@/components/ComboboxSelect";
+import { BulkTransactionForm } from "@/components/BulkTransactionForm";
 
 const TransactionForm = ({
   formData,
@@ -143,13 +144,15 @@ const TransactionForm = ({
 };
 
 const Transactions = () => {
-  const { laminates, transactions, addTransaction, updateTransaction, deleteTransaction, getLaminateById } = useData();
+  const { laminates, transactions, addTransaction, addBulkTransactions, updateTransaction, deleteTransaction, getLaminateById } = useData();
   const { isAdmin } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [transactionTab, setTransactionTab] = useState("all");
   const [isAddPurchaseDialogOpen, setIsAddPurchaseDialogOpen] = useState(false);
   const [isAddSaleDialogOpen, setIsAddSaleDialogOpen] = useState(false);
+  const [isBulkPurchaseDialogOpen, setIsBulkPurchaseDialogOpen] = useState(false);
+  const [isBulkSaleDialogOpen, setIsBulkSaleDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -329,6 +332,28 @@ const Transactions = () => {
     }
   };
 
+  const handleBulkPurchaseSubmit = async (items: { id: string; laminateId: string; quantity: number }[], commonData: { date: string; customerName?: string; remarks?: string }) => {
+    setIsProcessing(true);
+    
+    try {
+      await addBulkTransactions(items, { ...commonData, type: "purchase" });
+      setIsBulkPurchaseDialogOpen(false);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBulkSaleSubmit = async (items: { id: string; laminateId: string; quantity: number }[], commonData: { date: string; customerName?: string; remarks?: string }) => {
+    setIsProcessing(true);
+    
+    try {
+      await addBulkTransactions(items, { ...commonData, type: "sale" });
+      setIsBulkSaleDialogOpen(false);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString), "MMM dd, yyyy");
@@ -347,12 +372,41 @@ const Transactions = () => {
           </p>
         </div>
         <div className="flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
-          <Button onClick={openAddPurchaseDialog} disabled={isProcessing}>
-            <ArrowDown className="mr-1 h-4 w-4" /> Add Purchase
-          </Button>
-          <Button onClick={openAddSaleDialog} disabled={isProcessing}>
-            <ArrowUp className="mr-1 h-4 w-4" /> Add Sale
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button disabled={isProcessing}>
+                <ArrowDown className="mr-1 h-4 w-4" /> Add Purchase
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={openAddPurchaseDialog}>
+                <Plus className="mr-2 h-4 w-4" />
+                Single Purchase
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsBulkPurchaseDialogOpen(true)}>
+                <Package className="mr-2 h-4 w-4" />
+                Bulk Purchase
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button disabled={isProcessing}>
+                <ArrowUp className="mr-1 h-4 w-4" /> Add Sale
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={openAddSaleDialog}>
+                <Plus className="mr-2 h-4 w-4" />
+                Single Sale
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsBulkSaleDialogOpen(true)}>
+                <Package className="mr-2 h-4 w-4" />
+                Bulk Sale
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -560,6 +614,42 @@ const Transactions = () => {
               isSubmitting={isProcessing}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBulkPurchaseDialogOpen} onOpenChange={setIsBulkPurchaseDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Record Bulk Purchase</DialogTitle>
+            <DialogDescription>
+              Add multiple laminates with different quantities in a single purchase transaction.
+            </DialogDescription>
+          </DialogHeader>
+          <BulkTransactionForm
+            laminates={laminates}
+            transactionType="purchase"
+            onSubmit={handleBulkPurchaseSubmit}
+            onCancel={() => setIsBulkPurchaseDialogOpen(false)}
+            isSubmitting={isProcessing}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBulkSaleDialogOpen} onOpenChange={setIsBulkSaleDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Record Bulk Sale</DialogTitle>
+            <DialogDescription>
+              Add multiple laminates with different quantities in a single sale transaction.
+            </DialogDescription>
+          </DialogHeader>
+          <BulkTransactionForm
+            laminates={laminates}
+            transactionType="sale"
+            onSubmit={handleBulkSaleSubmit}
+            onCancel={() => setIsBulkSaleDialogOpen(false)}
+            isSubmitting={isProcessing}
+          />
         </DialogContent>
       </Dialog>
 
